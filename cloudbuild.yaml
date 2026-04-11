@@ -1,0 +1,87 @@
+steps:
+  - id: build-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_AR_HOST}/${PROJECT_ID}/${_GAR_REPOSITORY}/${_IMAGE_NAME}:${SHORT_SHA}
+      - -t
+      - ${_AR_HOST}/${PROJECT_ID}/${_GAR_REPOSITORY}/${_IMAGE_NAME}:latest
+      - .
+
+  - id: push-image-sha
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_AR_HOST}/${PROJECT_ID}/${_GAR_REPOSITORY}/${_IMAGE_NAME}:${SHORT_SHA}
+
+  - id: push-image-latest
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_AR_HOST}/${PROJECT_ID}/${_GAR_REPOSITORY}/${_IMAGE_NAME}:latest
+
+  - id: render-cloud-run-service
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        SERVICE_ACCOUNT="${_CLOUD_RUN_SERVICE_ACCOUNT}"
+        if [ -z "${SERVICE_ACCOUNT}" ]; then
+          SERVICE_ACCOUNT="astro-api@${PROJECT_ID}.iam.gserviceaccount.com"
+        fi
+        sed \
+          -e "s|__CLOUD_RUN_SERVICE__|${_CLOUD_RUN_SERVICE}|g" \
+          -e "s|__GCP_PROJECT_ID__|${PROJECT_ID}|g" \
+          -e "s|__GCP_REGION__|${_GCP_REGION}|g" \
+          -e "s|__IMAGE_URI__|${_AR_HOST}/${PROJECT_ID}/${_GAR_REPOSITORY}/${_IMAGE_NAME}:${SHORT_SHA}|g" \
+          -e "s|__CLOUD_RUN_SERVICE_ACCOUNT__|${SERVICE_ACCOUNT}|g" \
+          -e "s|__CLOUD_RUN_EPHEMERIS_BUCKET__|${_CLOUD_RUN_EPHEMERIS_BUCKET}|g" \
+          deploy/cloudrun/service.yaml > /workspace/cloudrun-service.yaml
+
+  - id: deploy-cloud-run
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    args:
+      - run
+      - services
+      - replace
+      - /workspace/cloudrun-service.yaml
+      - --region
+      - ${_GCP_REGION}
+
+  - id: allow-unauthenticated
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    args:
+      - run
+      - services
+      - add-iam-policy-binding
+      - ${_CLOUD_RUN_SERVICE}
+      - --region
+      - ${_GCP_REGION}
+      - --member
+      - allUsers
+      - --role
+      - roles/run.invoker
+
+  - id: smoke-test-health
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        URL="$$(gcloud run services describe "${_CLOUD_RUN_SERVICE}" --region "${_GCP_REGION}" --format='value(status.url)')"
+        curl --fail --show-error --silent "$${URL}/health"
+
+images:
+  - ${_AR_HOST}/${PROJECT_ID}/${_GAR_REPOSITORY}/${_IMAGE_NAME}:${SHORT_SHA}
+  - ${_AR_HOST}/${PROJECT_ID}/${_GAR_REPOSITORY}/${_IMAGE_NAME}:latest
+
+substitutions:
+  _AR_HOST: asia-south1-docker.pkg.dev
+  _GCP_REGION: asia-south1
+  _GAR_REPOSITORY: astro-engine
+  _IMAGE_NAME: astro-api
+  _CLOUD_RUN_SERVICE: astro-api
+  _CLOUD_RUN_SERVICE_ACCOUNT: ""
+  _CLOUD_RUN_EPHEMERIS_BUCKET: daanyam-ephe

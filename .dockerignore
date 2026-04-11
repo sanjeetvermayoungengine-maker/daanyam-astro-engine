@@ -1,0 +1,8 @@
+.git
+.github
+target
+dist
+tmp
+.DS_Store
+de440.bsp
+*.bsp

@@ -1,0 +1,14 @@
+[package]
+name = "astro-western"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+astro-core = { path = "../astro-core" }
+serde.workspace = true
+
+[lints]
+workspace = true
+

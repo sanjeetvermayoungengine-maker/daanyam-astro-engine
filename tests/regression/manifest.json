@@ -1,0 +1,474 @@
+{
+  "version": 1,
+  "source": {
+    "name": "JPL Horizons API",
+    "url": "https://ssd.jpl.nasa.gov/api/horizons.api",
+    "queried_on": "2026-04-04",
+    "notes": "Observer-centered apparent ecliptic-of-date longitude and latitude. Horizons response headers reported DE441 as the upstream source at query time while the engine under test uses DE440."
+  },
+  "groups": [
+    {
+      "name": "horizons_deflection_on",
+      "source_type": "jpl_horizons",
+      "kernel_file": "de440.bsp",
+      "tolerance_deg": 0.05,
+      "horizons_params": {
+        "quantities": "31",
+        "apparent": "airless",
+        "center": "500@399",
+        "ephem_type": "observer",
+        "ang_format": "deg",
+        "ref_system": "icrf",
+        "atmospheric_refraction": "no",
+        "gravitational_deflection": true,
+        "node_policy": null,
+        "notes": "Observer-centered apparent ecliptic-of-date vectors for physical bodies supported by the DE440 pipeline."
+      },
+      "vectors": [
+        {
+          "body": "moon",
+          "utc": "1900-01-01T12:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 279.6163189,
+          "expected_latitude_deg": 1.7442764
+        },
+        {
+          "body": "moon",
+          "utc": "1947-08-15T00:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 120.5657489,
+          "expected_latitude_deg": 4.4182229
+        },
+        {
+          "body": "moon",
+          "utc": "1995-08-12T09:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 340.7605971,
+          "expected_latitude_deg": 3.7662269
+        },
+        {
+          "body": "moon",
+          "utc": "2000-01-01T12:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 223.3237860,
+          "expected_latitude_deg": 5.1707422
+        },
+        {
+          "body": "moon",
+          "utc": "2024-04-08T18:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 19.1832147,
+          "expected_latitude_deg": 0.3292439
+        },
+        {
+          "body": "sun",
+          "utc": "1900-01-01T12:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 280.6632209,
+          "expected_latitude_deg": 0.0000843
+        },
+        {
+          "body": "sun",
+          "utc": "1947-08-15T00:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 141.3310464,
+          "expected_latitude_deg": 0.0000189
+        },
+        {
+          "body": "sun",
+          "utc": "1995-08-12T09:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 139.1992378,
+          "expected_latitude_deg": 0.0000129
+        },
+        {
+          "body": "sun",
+          "utc": "2000-01-01T12:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 280.3689092,
+          "expected_latitude_deg": 0.0002381
+        },
+        {
+          "body": "sun",
+          "utc": "2024-04-08T18:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 19.3861885,
+          "expected_latitude_deg": -0.0000535
+        },
+        {
+          "body": "mercury",
+          "utc": "1900-01-01T12:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 259.6392831,
+          "expected_latitude_deg": 1.0559217
+        },
+        {
+          "body": "mercury",
+          "utc": "1947-08-15T00:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 127.2110125,
+          "expected_latitude_deg": 0.8119655
+        },
+        {
+          "body": "mercury",
+          "utc": "1995-08-12T09:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 154.2093525,
+          "expected_latitude_deg": 1.2422302
+        },
+        {
+          "body": "mercury",
+          "utc": "2000-01-01T12:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 271.8892699,
+          "expected_latitude_deg": -0.9948190
+        },
+        {
+          "body": "mercury",
+          "utc": "2024-04-08T18:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 24.8070865,
+          "expected_latitude_deg": 2.8363272
+        },
+        {
+          "body": "venus",
+          "utc": "2000-01-01T12:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 241.5657794,
+          "expected_latitude_deg": 2.0663548
+        },
+        {
+          "body": "venus",
+          "utc": "2024-04-08T18:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 4.4271950,
+          "expected_latitude_deg": -1.4965152
+        },
+        {
+          "body": "mars",
+          "utc": "2000-01-01T12:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 327.9632921,
+          "expected_latitude_deg": -1.0677752
+        },
+        {
+          "body": "mars",
+          "utc": "2024-04-08T18:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 343.0401557,
+          "expected_latitude_deg": -1.2446853
+        },
+        {
+          "body": "jupiter",
+          "utc": "2000-01-01T12:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 25.2530736,
+          "expected_latitude_deg": -1.2621868
+        },
+        {
+          "body": "jupiter",
+          "utc": "2024-04-08T18:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 49.0425373,
+          "expected_latitude_deg": -0.8016823
+        },
+        {
+          "body": "saturn",
+          "utc": "2000-01-01T12:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 40.3956492,
+          "expected_latitude_deg": -2.4448565
+        },
+        {
+          "body": "saturn",
+          "utc": "2024-04-08T18:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 344.4536758,
+          "expected_latitude_deg": -1.6844059
+        }
+      ]
+    },
+    {
+      "name": "horizons_deflection_off",
+      "source_type": "manual_reference",
+      "kernel_file": "de440.bsp",
+      "tolerance_deg": 0.000001,
+      "horizons_params": {
+        "quantities": "31",
+        "apparent": "airless",
+        "center": "500@399",
+        "ephem_type": "observer",
+        "ang_format": "deg",
+        "ref_system": "icrf",
+        "atmospheric_refraction": "no",
+        "gravitational_deflection": false,
+        "node_policy": null,
+        "notes": "Horizons-equivalent observer-table parameters with gravitational deflection disabled in the local DE440 apparent pipeline. Horizons observer tables do not expose a standalone deflection toggle, so these values are engine-derived audit fixtures."
+      },
+      "vectors": [
+        {
+          "body": "moon",
+          "utc": "1900-01-01T12:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 279.6171524193,
+          "expected_latitude_deg": 1.7447713427
+        },
+        {
+          "body": "moon",
+          "utc": "1947-08-15T00:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 120.5700627392,
+          "expected_latitude_deg": 4.4182522827
+        },
+        {
+          "body": "moon",
+          "utc": "1995-08-12T09:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 340.7577900636,
+          "expected_latitude_deg": 3.7662269182
+        },
+        {
+          "body": "moon",
+          "utc": "2000-01-01T12:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 223.3276674081,
+          "expected_latitude_deg": 5.1707421557
+        },
+        {
+          "body": "moon",
+          "utc": "2024-04-08T18:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 19.1847274021,
+          "expected_latitude_deg": 0.3292438981
+        },
+        {
+          "body": "sun",
+          "utc": "1900-01-01T12:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 280.6587411903,
+          "expected_latitude_deg": 0.0000843284
+        },
+        {
+          "body": "sun",
+          "utc": "1947-08-15T00:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 141.3346931937,
+          "expected_latitude_deg": 0.0000188778
+        },
+        {
+          "body": "sun",
+          "utc": "1995-08-12T09:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 139.1964309544,
+          "expected_latitude_deg": 0.0000129484
+        },
+        {
+          "body": "sun",
+          "utc": "2000-01-01T12:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 280.3727907041,
+          "expected_latitude_deg": 0.0002380680
+        },
+        {
+          "body": "sun",
+          "utc": "2024-04-08T18:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 19.3877014366,
+          "expected_latitude_deg": -0.0000535325
+        },
+        {
+          "body": "mercury",
+          "utc": "1900-01-01T12:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 259.6349114400,
+          "expected_latitude_deg": 1.0558660286
+        },
+        {
+          "body": "mercury",
+          "utc": "1947-08-15T00:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 127.2147012997,
+          "expected_latitude_deg": 0.8119732987
+        },
+        {
+          "body": "mercury",
+          "utc": "1995-08-12T09:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 154.2065434447,
+          "expected_latitude_deg": 1.2422299928
+        },
+        {
+          "body": "mercury",
+          "utc": "2000-01-01T12:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 271.8931562018,
+          "expected_latitude_deg": -0.9948184719
+        },
+        {
+          "body": "mercury",
+          "utc": "2024-04-08T18:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 24.8085994374,
+          "expected_latitude_deg": 2.8363271516
+        },
+        {
+          "body": "venus",
+          "utc": "2000-01-01T12:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 241.5696618691,
+          "expected_latitude_deg": 2.0663547490
+        },
+        {
+          "body": "venus",
+          "utc": "2024-04-08T18:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 4.4287113953,
+          "expected_latitude_deg": -1.4965148799
+        },
+        {
+          "body": "mars",
+          "utc": "2000-01-01T12:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 327.9671721958,
+          "expected_latitude_deg": -1.0677751543
+        },
+        {
+          "body": "mars",
+          "utc": "2024-04-08T18:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 343.0416705777,
+          "expected_latitude_deg": -1.2446852908
+        },
+        {
+          "body": "jupiter",
+          "utc": "2000-01-01T12:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 25.2569543477,
+          "expected_latitude_deg": -1.2621867566
+        },
+        {
+          "body": "jupiter",
+          "utc": "2024-04-08T18:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 49.0440467311,
+          "expected_latitude_deg": -0.8016822461
+        },
+        {
+          "body": "saturn",
+          "utc": "2000-01-01T12:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 40.3995301166,
+          "expected_latitude_deg": -2.4448565367
+        },
+        {
+          "body": "saturn",
+          "utc": "2024-04-08T18:00:00Z",
+          "observer": "geocenter",
+          "frame": "apparent_ecliptic_of_date",
+          "expected_longitude_deg": 344.4551920694,
+          "expected_latitude_deg": -1.6844057945
+        }
+      ]
+    },
+    {
+      "name": "true_node_manual_reference",
+      "source_type": "manual_reference",
+      "kernel_file": "de440.bsp",
+      "tolerance_deg": 0.000001,
+      "horizons_params": {
+        "quantities": "31",
+        "apparent": "airless",
+        "center": "500@399",
+        "ephem_type": "observer",
+        "ang_format": "deg",
+        "ref_system": "icrf",
+        "atmospheric_refraction": "no",
+        "gravitational_deflection": false,
+        "node_policy": "true",
+        "notes": "Manual reference vectors for DE440-derived true lunar nodes in mean ecliptic-of-date. Horizons has no direct Rahu/Ketu target, so these values are audited against the documented node derivation policy."
+      },
+      "vectors": [
+        {
+          "body": "rahu",
+          "utc": "2000-01-01T12:00:00Z",
+          "observer": "geocenter",
+          "frame": "mean_ecliptic_of_date",
+          "expected_longitude_deg": 123.95801477738797,
+          "expected_latitude_deg": 0.0
+        },
+        {
+          "body": "ketu",
+          "utc": "2000-01-01T12:00:00Z",
+          "observer": "geocenter",
+          "frame": "mean_ecliptic_of_date",
+          "expected_longitude_deg": 303.95801477738797,
+          "expected_latitude_deg": 0.0
+        },
+        {
+          "body": "rahu",
+          "utc": "2024-04-08T18:00:00Z",
+          "observer": "geocenter",
+          "frame": "mean_ecliptic_of_date",
+          "expected_longitude_deg": 15.628308903605266,
+          "expected_latitude_deg": 0.0
+        },
+        {
+          "body": "ketu",
+          "utc": "2024-04-08T18:00:00Z",
+          "observer": "geocenter",
+          "frame": "mean_ecliptic_of_date",
+          "expected_longitude_deg": 195.62830890360527,
+          "expected_latitude_deg": 0.0
+        }
+      ]
+    }
+  ],
+  "policy": {
+    "fail_on_vectors_present": true
+  }
+}

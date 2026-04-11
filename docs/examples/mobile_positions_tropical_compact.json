@@ -1,0 +1,24 @@
+{
+  "data": {
+    "positions": [
+      {
+        "position": {
+          "body": "moon",
+          "longitude_deg": 123.45,
+          "latitude_deg": 4.56,
+          "distance_au": null,
+          "frame": "ecliptic_geocentric"
+        },
+        "computation_meta": null
+      }
+    ]
+  },
+  "metadata": {
+    "engine_mode": "vedic",
+    "ayanamsa_used": "lahiri",
+    "house_system": "whole_sign",
+    "gravitational_deflection": true,
+    "engine_semantic_version": "0.17.0",
+    "version": "0.1.0"
+  }
+}

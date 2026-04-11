@@ -1,0 +1,892 @@
+{
+  "components": {
+    "schemas": {
+      "ApiPositionResult": {
+        "properties": {
+          "computation_meta": {
+            "description": "Null when compact=true.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BodyComputationMeta"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "position": {
+            "$ref": "#/components/schemas/BodyPosition"
+          }
+        },
+        "type": "object"
+      },
+      "BodyComputationMeta": {
+        "properties": {
+          "ayanamsa_algorithm": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "crate_version": {
+            "type": "string"
+          },
+          "frame": {
+            "type": "string"
+          },
+          "gravitational_deflection": {
+            "type": "boolean"
+          },
+          "kernel": {
+            "type": "string"
+          },
+          "kernel_notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "light_time": {
+            "type": "boolean"
+          },
+          "motion_model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "node_policy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "observer": {
+            "type": "string"
+          },
+          "stellar_aberration": {
+            "type": "boolean"
+          },
+          "topocentric_applied": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "BodyPosition": {
+        "properties": {
+          "body": {
+            "$ref": "#/components/schemas/CelestialBody"
+          },
+          "distance_au": {
+            "description": "Null when compact=true in /positions.",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "frame": {
+            "type": "string"
+          },
+          "latitude_deg": {
+            "type": "number"
+          },
+          "longitude_deg": {
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "CelestialBody": {
+        "enum": [
+          "sun",
+          "moon",
+          "mercury",
+          "venus",
+          "mars",
+          "jupiter",
+          "saturn",
+          "rahu",
+          "ketu"
+        ],
+        "type": "string"
+      },
+      "ChartDashaSummary": {
+        "properties": {
+          "as_of_utc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "birth_nakshatra": {
+            "type": "string"
+          },
+          "birth_pada": {
+            "type": "integer"
+          },
+          "current": {
+            "$ref": "#/components/schemas/VimshottariDasha"
+          }
+        },
+        "type": "object"
+      },
+      "ChartGrahaPositionResult": {
+        "properties": {
+          "body": {
+            "$ref": "#/components/schemas/CelestialBody"
+          },
+          "computation_meta": {
+            "description": "Null when compact=true.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BodyComputationMeta"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "distance_au": {
+            "description": "Null when compact=true.",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "house_context": {
+            "$ref": "#/components/schemas/GrahaHouseContext"
+          },
+          "longitude_speed_deg_per_day": {
+            "type": "number"
+          },
+          "moon_division": {
+            "description": "Null when compact=true or for non-Moon bodies.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SiderealDivision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "retrograde": {
+            "type": "boolean"
+          },
+          "sidereal_longitude_deg": {
+            "type": "number"
+          },
+          "sidereal_rashi": {
+            "type": "string"
+          },
+          "tropical_latitude_deg": {
+            "description": "Omitted in JSON when projection=sidereal_only.",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "tropical_longitude_deg": {
+            "description": "Omitted in JSON when projection=sidereal_only.",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "whole_sign_house": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "ChartMotionSummary": {
+        "properties": {
+          "fastest": {
+            "$ref": "#/components/schemas/FastestBodySummary"
+          },
+          "retrograde_bodies": {
+            "items": {
+              "$ref": "#/components/schemas/CelestialBody"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "ChartSummary": {
+        "properties": {
+          "dispositors": {
+            "items": {
+              "$ref": "#/components/schemas/GrahaDispositorSummary"
+            },
+            "type": "array"
+          },
+          "grahas_by_rashi": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/CelestialBody"
+              },
+              "type": "array"
+            },
+            "type": "object"
+          },
+          "house_lords": {
+            "items": {
+              "$ref": "#/components/schemas/CelestialBody"
+            },
+            "type": "array"
+          },
+          "houses": {
+            "items": {
+              "$ref": "#/components/schemas/HouseOccupancySummary"
+            },
+            "type": "array"
+          },
+          "lagna_lord": {
+            "$ref": "#/components/schemas/CelestialBody"
+          },
+          "lagna_rashi": {
+            "type": "string"
+          },
+          "moon_rashi": {
+            "type": "string"
+          },
+          "motion": {
+            "$ref": "#/components/schemas/ChartMotionSummary"
+          },
+          "placement_table": {
+            "items": {
+              "$ref": "#/components/schemas/GrahaPlacementSummary"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "DashaPeriod": {
+        "properties": {
+          "end": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "lord": {
+            "type": "string"
+          },
+          "start": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DateTimeInput": {
+        "oneOf": [
+          {
+            "properties": {
+              "kind": {
+                "const": "utc"
+              },
+              "utc": {
+                "format": "date-time",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "utc"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "kind": {
+                "const": "local"
+              },
+              "local": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "timezone": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "local",
+              "timezone"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "datetime": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "kind": {
+                "const": "offset"
+              }
+            },
+            "required": [
+              "kind",
+              "datetime"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "FastestBodySummary": {
+        "properties": {
+          "body": {
+            "$ref": "#/components/schemas/CelestialBody"
+          },
+          "longitude_speed_deg_per_day": {
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "GeolocationInput": {
+        "properties": {
+          "elevation_m": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "latitude_deg": {
+            "type": "number"
+          },
+          "longitude_deg": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "latitude_deg",
+          "longitude_deg"
+        ],
+        "type": "object"
+      },
+      "GrahaDispositorSummary": {
+        "properties": {
+          "body": {
+            "$ref": "#/components/schemas/CelestialBody"
+          },
+          "dispositor": {
+            "$ref": "#/components/schemas/CelestialBody"
+          },
+          "occupied_rashi": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "GrahaHouseContext": {
+        "properties": {
+          "house_lord": {
+            "$ref": "#/components/schemas/CelestialBody"
+          },
+          "whole_sign_house": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "GrahaPlacementSummary": {
+        "properties": {
+          "body": {
+            "$ref": "#/components/schemas/CelestialBody"
+          },
+          "house_context": {
+            "$ref": "#/components/schemas/GrahaHouseContext"
+          },
+          "sidereal_rashi": {
+            "type": "string"
+          },
+          "sign_lord": {
+            "$ref": "#/components/schemas/CelestialBody"
+          },
+          "whole_sign_house": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "HouseOccupancySummary": {
+        "properties": {
+          "house": {
+            "type": "integer"
+          },
+          "occupants": {
+            "items": {
+              "$ref": "#/components/schemas/CelestialBody"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "LagnaPosition": {
+        "properties": {
+          "rashi": {
+            "type": "string"
+          },
+          "sidereal_longitude_deg": {
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "PositionResult": {
+        "properties": {
+          "computation_meta": {
+            "$ref": "#/components/schemas/BodyComputationMeta"
+          },
+          "position": {
+            "$ref": "#/components/schemas/BodyPosition"
+          }
+        },
+        "type": "object"
+      },
+      "PositionsRequest": {
+        "properties": {
+          "bodies": {
+            "items": {
+              "$ref": "#/components/schemas/CelestialBody"
+            },
+            "type": "array"
+          },
+          "compact": {
+            "description": "When true, omits position distance and computation metadata for lightweight clients.",
+            "type": "boolean"
+          },
+          "julian_day": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "julian_day",
+          "bodies"
+        ],
+        "type": "object"
+      },
+      "PositionsResponse": {
+        "properties": {
+          "data": {
+            "properties": {
+              "positions": {
+                "items": {
+                  "$ref": "#/components/schemas/ApiPositionResult"
+                },
+                "type": "array"
+              }
+            },
+            "type": "object"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/ResultMetadata"
+          }
+        },
+        "type": "object"
+      },
+      "ResultMetadata": {
+        "properties": {
+          "ayanamsa_used": {
+            "type": "string"
+          },
+          "engine_mode": {
+            "type": "string"
+          },
+          "engine_semantic_version": {
+            "type": "string"
+          },
+          "gravitational_deflection": {
+            "type": "boolean"
+          },
+          "house_system": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "SiderealChartPayload": {
+        "properties": {
+          "dasha": {
+            "description": "Null when compact=true.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ChartDashaSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "extensions": {
+            "type": "object"
+          },
+          "grahas": {
+            "items": {
+              "$ref": "#/components/schemas/ChartGrahaPositionResult"
+            },
+            "type": "array"
+          },
+          "house_system": {
+            "type": "string"
+          },
+          "houses": {
+            "description": "Null when compact=true.",
+            "oneOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/WholeSignHouse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lagna": {
+            "$ref": "#/components/schemas/LagnaPosition"
+          },
+          "lahiri_algorithm": {
+            "type": "string"
+          },
+          "moon_nakshatra": {
+            "type": "string"
+          },
+          "moon_pada": {
+            "type": "integer"
+          },
+          "moon_sidereal_longitude_deg": {
+            "type": "number"
+          },
+          "node_policy": {
+            "type": "string"
+          },
+          "schema_version": {
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/ChartSummary"
+          }
+        },
+        "type": "object"
+      },
+      "SiderealChartRequest": {
+        "properties": {
+          "as_of": {
+            "$ref": "#/components/schemas/DateTimeInput"
+          },
+          "ayanamsa": {
+            "enum": [
+              "lahiri",
+              "raman",
+              "krishnamurti",
+              "custom"
+            ],
+            "type": "string"
+          },
+          "compact": {
+            "description": "When true, omits houses, dasha, and heavy per-graha metadata fields.",
+            "type": "boolean"
+          },
+          "datetime": {
+            "$ref": "#/components/schemas/DateTimeInput"
+          },
+          "geo": {
+            "$ref": "#/components/schemas/GeolocationInput"
+          },
+          "gravitational_deflection": {
+            "type": "boolean"
+          },
+          "projection": {
+            "description": "When sidereal_only, omits tropical-only graha coordinate fields while keeping sidereal chart integrity.",
+            "enum": [
+              "full",
+              "sidereal_only"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "datetime",
+          "geo",
+          "ayanamsa"
+        ],
+        "type": "object"
+      },
+      "SiderealChartResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SiderealChartPayload"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/ResultMetadata"
+          }
+        },
+        "type": "object"
+      },
+      "SiderealDivision": {
+        "properties": {
+          "nakshatra": {
+            "type": "string"
+          },
+          "pada": {
+            "type": "integer"
+          },
+          "rashi": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "SiderealPositionResult": {
+        "properties": {
+          "body": {
+            "$ref": "#/components/schemas/CelestialBody"
+          },
+          "computation_meta": {
+            "description": "Null when compact=true.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BodyComputationMeta"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "distance_au": {
+            "description": "Null when compact=true.",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "longitude_speed_deg_per_day": {
+            "type": "number"
+          },
+          "moon_division": {
+            "description": "Null when compact=true or for non-Moon bodies.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SiderealDivision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "retrograde": {
+            "type": "boolean"
+          },
+          "sidereal_longitude_deg": {
+            "type": "number"
+          },
+          "tropical_latitude_deg": {
+            "description": "Omitted in JSON when projection=sidereal_only.",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "tropical_longitude_deg": {
+            "description": "Omitted in JSON when projection=sidereal_only.",
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "SiderealPositionsRequest": {
+        "properties": {
+          "ayanamsa": {
+            "enum": [
+              "lahiri",
+              "raman",
+              "krishnamurti",
+              "custom"
+            ],
+            "type": "string"
+          },
+          "bodies": {
+            "items": {
+              "$ref": "#/components/schemas/CelestialBody"
+            },
+            "type": "array"
+          },
+          "compact": {
+            "description": "When true, omits distance_au, moon_division, and computation_meta in each position.",
+            "type": "boolean"
+          },
+          "datetime": {
+            "$ref": "#/components/schemas/DateTimeInput"
+          },
+          "geo": {
+            "$ref": "#/components/schemas/GeolocationInput"
+          },
+          "gravitational_deflection": {
+            "type": "boolean"
+          },
+          "projection": {
+            "description": "When sidereal_only, omits tropical-only body coordinate fields while keeping sidereal positions and motion fields.",
+            "enum": [
+              "full",
+              "sidereal_only"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "datetime",
+          "geo",
+          "ayanamsa",
+          "bodies"
+        ],
+        "type": "object"
+      },
+      "SiderealPositionsResponse": {
+        "properties": {
+          "data": {
+            "properties": {
+              "positions": {
+                "items": {
+                  "$ref": "#/components/schemas/SiderealPositionResult"
+                },
+                "type": "array"
+              }
+            },
+            "type": "object"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/ResultMetadata"
+          }
+        },
+        "type": "object"
+      },
+      "VimshottariDasha": {
+        "properties": {
+          "antar": {
+            "$ref": "#/components/schemas/DashaPeriod"
+          },
+          "maha": {
+            "$ref": "#/components/schemas/DashaPeriod"
+          },
+          "pratyantar": {
+            "$ref": "#/components/schemas/DashaPeriod"
+          }
+        },
+        "type": "object"
+      },
+      "WholeSignHouse": {
+        "properties": {
+          "cusp_sidereal_longitude_deg": {
+            "type": "number"
+          },
+          "house": {
+            "type": "integer"
+          },
+          "rashi": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Daanyam Astro Engine API",
+    "version": "0.17.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/chart/sidereal": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiderealChartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiderealChartResponse"
+                }
+              }
+            },
+            "description": "Sidereal chart"
+          }
+        },
+        "summary": "Compute a sidereal chart payload"
+      }
+    },
+    "/positions": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PositionsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PositionsResponse"
+                }
+              }
+            },
+            "description": "Tropical positions"
+          }
+        },
+        "summary": "Compute tropical positions"
+      }
+    },
+    "/positions/sidereal": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiderealPositionsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiderealPositionsResponse"
+                }
+              }
+            },
+            "description": "Sidereal positions"
+          }
+        },
+        "summary": "Compute Lahiri sidereal positions"
+      }
+    }
+  }
+}

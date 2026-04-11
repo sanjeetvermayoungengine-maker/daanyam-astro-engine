@@ -1,0 +1,114 @@
+{
+  "data": {
+    "schema_version": "chart_sidereal_v1",
+    "extensions": {},
+    "summary": {
+      "moon_rashi": "karka",
+      "lagna_rashi": "meena",
+      "lagna_lord": "jupiter",
+      "house_lords": [
+        "jupiter",
+        "mars",
+        "venus",
+        "mercury",
+        "moon",
+        "sun",
+        "mercury",
+        "venus",
+        "mars",
+        "jupiter",
+        "saturn",
+        "saturn"
+      ],
+      "houses": [
+        { "house": 1, "occupants": ["rahu"] },
+        { "house": 2, "occupants": ["jupiter"] },
+        { "house": 3, "occupants": [] },
+        { "house": 4, "occupants": [] },
+        { "house": 5, "occupants": ["moon", "mercury"] },
+        { "house": 6, "occupants": [] },
+        { "house": 7, "occupants": ["ketu"] },
+        { "house": 8, "occupants": ["mars"] },
+        { "house": 9, "occupants": ["venus"] },
+        { "house": 10, "occupants": ["sun"] },
+        { "house": 11, "occupants": [] },
+        { "house": 12, "occupants": ["saturn"] }
+      ],
+      "grahas_by_rashi": {
+        "mesha": [],
+        "vrishabha": ["jupiter"],
+        "mithuna": [],
+        "karka": ["moon"],
+        "simha": ["mercury"],
+        "kanya": [],
+        "tula": ["ketu"],
+        "vrischika": ["mars"],
+        "dhanu": ["sun"],
+        "makara": ["venus"],
+        "kumbha": [],
+        "meena": ["saturn", "rahu"]
+      },
+      "dispositors": [
+        { "body": "sun", "occupied_rashi": "dhanu", "dispositor": "jupiter" },
+        { "body": "moon", "occupied_rashi": "karka", "dispositor": "moon" }
+      ],
+      "placement_table": [
+        {
+          "body": "sun",
+          "sidereal_rashi": "dhanu",
+          "whole_sign_house": 10,
+          "sign_lord": "jupiter",
+          "house_context": {
+            "whole_sign_house": 10,
+            "house_lord": "jupiter"
+          }
+        }
+      ],
+      "motion": {
+        "retrograde_bodies": [],
+        "fastest": {
+          "body": "sun",
+          "longitude_speed_deg_per_day": 0.0
+        }
+      }
+    },
+    "grahas": [
+      {
+        "body": "sun",
+        "sidereal_longitude_deg": 256.1364127696777,
+        "longitude_speed_deg_per_day": 0.0,
+        "sidereal_rashi": "dhanu",
+        "whole_sign_house": 10,
+        "retrograde": false
+      },
+      {
+        "body": "moon",
+        "sidereal_longitude_deg": 99.58641276967772,
+        "longitude_speed_deg_per_day": 0.0,
+        "sidereal_rashi": "karka",
+        "whole_sign_house": 5,
+        "retrograde": false
+      }
+    ],
+    "lagna": {
+      "rashi": "meena",
+      "sidereal_longitude_deg": 336.1364127696777
+    },
+    "houses": null,
+    "house_system": "whole_sign",
+    "moon_sidereal_longitude_deg": 99.58641276967772,
+    "moon_nakshatra": "pushya",
+    "moon_pada": 2,
+    "dasha": null,
+    "node_policy": "true_node_mean_ecliptic_of_date",
+    "lahiri_algorithm": "lahiri_swe_zero_epoch_iau1976_v1"
+  },
+  "metadata": {
+    "engine_mode": "vedic",
+    "ayanamsa_used": "lahiri",
+    "house_system": "whole_sign",
+    "gravitational_deflection": true,
+    "engine_semantic_version": "0.17.0",
+    "version": "0.1.0"
+  }
+}

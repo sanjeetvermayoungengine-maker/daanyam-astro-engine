@@ -1,0 +1,63 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: __CLOUD_RUN_SERVICE__
+  annotations:
+    run.googleapis.com/launch-stage: GA
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "10"
+        run.googleapis.com/execution-environment: gen2
+    spec:
+      containerConcurrency: 80
+      timeoutSeconds: 300
+      serviceAccountName: __CLOUD_RUN_SERVICE_ACCOUNT__
+      containers:
+        - image: __IMAGE_URI__
+          ports:
+            - name: http1
+              containerPort: 3000
+          env:
+            - name: HOST
+              value: 0.0.0.0
+            - name: PORT
+              value: "3000"
+            - name: ASTRO_BACKEND
+              value: de440
+            - name: ASTRO_EPHE_PATH
+              value: /ephe/de440.bsp
+            - name: ENVIRONMENT
+              value: production
+            - name: RUST_LOG
+              value: info
+          resources:
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          startupProbe:
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 12
+            httpGet:
+              path: /health
+              port: 3000
+          livenessProbe:
+            timeoutSeconds: 5
+            periodSeconds: 20
+            failureThreshold: 3
+            httpGet:
+              path: /health
+              port: 3000
+          volumeMounts:
+            - name: ephemeris
+              mountPath: /ephe
+      volumes:
+        - name: ephemeris
+          csi:
+            driver: gcsfuse.run.googleapis.com
+            readOnly: true
+            volumeAttributes:
+              bucketName: __CLOUD_RUN_EPHEMERIS_BUCKET__

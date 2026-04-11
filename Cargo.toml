@@ -1,0 +1,39 @@
+[workspace]
+members = [
+    "crates/astro-api",
+    "crates/astro-core",
+    "crates/astro-napi",
+    "crates/astro-vedic",
+    "crates/astro-wasm",
+    "crates/astro-western",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+version = "0.1.0"
+authors = ["Daanyam"]
+repository = "https://example.com/daanyam-astro-engine"
+rust-version = "1.80"
+
+[workspace.dependencies]
+axum = "0.7"
+chrono = { version = "0.4", features = ["serde"] }
+chrono-tz = "0.10"
+criterion = { version = "0.5", default-features = false }
+napi = { version = "2", default-features = false, features = ["napi8"] }
+napi-derive = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["trace"] }
+wasm-bindgen = "0.2"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = "warn"

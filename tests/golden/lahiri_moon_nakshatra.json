@@ -1,0 +1,54 @@
+{
+  "source": {
+    "type": "manual_reference",
+    "algorithm_id": "lahiri_swe_zero_epoch_iau1976_v1",
+    "notes": "Manual reference values for the documented Lahiri reference implementation using the Swiss Ephemeris Lahiri zero epoch (285-03-22 17:54:02 TT) and the IAU 1976 precession-in-longitude polynomial. Tropical Moon longitudes come from the current DE440/Horizons apparent ecliptic-of-date baseline."
+  },
+  "vectors": [
+    {
+      "utc": "1900-01-01T12:00:00Z",
+      "tropical_longitude_deg": 279.6163189,
+      "expected_ayanamsa_deg": 22.46696099991632,
+      "expected_sidereal_longitude_deg": 257.1493579000837,
+      "expected_rashi": "dhanu",
+      "expected_nakshatra": "purvaashadha",
+      "expected_pada": 2
+    },
+    {
+      "utc": "1947-08-15T00:00:00Z",
+      "tropical_longitude_deg": 120.5657489,
+      "expected_ayanamsa_deg": 23.131910418629626,
+      "expected_sidereal_longitude_deg": 97.43383848137037,
+      "expected_rashi": "karka",
+      "expected_nakshatra": "pushya",
+      "expected_pada": 2
+    },
+    {
+      "utc": "1995-08-12T09:00:00Z",
+      "tropical_longitude_deg": 340.7605971,
+      "expected_ayanamsa_deg": 23.802273061738678,
+      "expected_sidereal_longitude_deg": 316.9583240382613,
+      "expected_rashi": "kumbha",
+      "expected_nakshatra": "shatabhisha",
+      "expected_pada": 4
+    },
+    {
+      "utc": "2000-01-01T12:00:00Z",
+      "tropical_longitude_deg": 223.3237860,
+      "expected_ayanamsa_deg": 23.863587258734846,
+      "expected_sidereal_longitude_deg": 199.46019874126517,
+      "expected_rashi": "tula",
+      "expected_nakshatra": "swati",
+      "expected_pada": 4
+    },
+    {
+      "utc": "2024-04-08T18:00:00Z",
+      "tropical_longitude_deg": 19.1832147,
+      "expected_ayanamsa_deg": 24.202636795562203,
+      "expected_sidereal_longitude_deg": 354.9805779044378,
+      "expected_rashi": "meena",
+      "expected_nakshatra": "revati",
+      "expected_pada": 3
+    }
+  ]
+}

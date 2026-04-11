@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: astro-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: astro-api
+  template:
+    metadata:
+      labels:
+        app: astro-api
+    spec:
+      containers:
+        - name: astro-api
+          image: daanyam-astro-api:rc
+          ports:
+            - containerPort: 3000
+          env:
+            - name: ASTRO_BACKEND
+              value: "de440"
+            - name: HOST
+              value: "0.0.0.0"
+            - name: PORT
+              value: "3000"
+            - name: ASTRO_EPHE_PATH
+              value: "/ephe/de440.bsp"
+            - name: RUST_LOG
+              value: "info"
+          volumeMounts:
+            - name: ephemeris
+              mountPath: /ephe
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1"
+              memory: "512Mi"
+      volumes:
+        - name: ephemeris
+          persistentVolumeClaim:
+            claimName: astro-ephe-pvc

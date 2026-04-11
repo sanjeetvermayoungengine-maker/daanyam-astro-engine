@@ -1,0 +1,23 @@
+{
+  "data": {
+    "positions": [
+      {
+        "body": "moon",
+        "sidereal_longitude_deg": 99.58641276967772,
+        "longitude_speed_deg_per_day": 0.0,
+        "retrograde": false,
+        "distance_au": null,
+        "moon_division": null,
+        "computation_meta": null
+      }
+    ]
+  },
+  "metadata": {
+    "engine_mode": "vedic",
+    "ayanamsa_used": "lahiri",
+    "house_system": "whole_sign",
+    "gravitational_deflection": true,
+    "engine_semantic_version": "0.17.0",
+    "version": "0.1.0"
+  }
+}

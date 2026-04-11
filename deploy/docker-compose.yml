@@ -1,0 +1,22 @@
+services:
+  astro-api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: daanyam-astro-api:local
+    ports:
+      - "3000:3000"
+    environment:
+      ASTRO_BACKEND: de440
+      HOST: 0.0.0.0
+      PORT: 3000
+      ASTRO_EPHE_PATH: /ephe/de440.bsp
+      RUST_LOG: info
+    volumes:
+      - /tmp/astro-ephe/de440.bsp:/ephe/de440.bsp:ro
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

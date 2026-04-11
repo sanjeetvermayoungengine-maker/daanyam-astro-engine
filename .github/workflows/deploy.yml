@@ -1,0 +1,83 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  GCP_REGION: ${{ vars.GCP_REGION || 'asia-south1' }}
+  GAR_REPOSITORY: ${{ vars.GAR_REPOSITORY || 'astro-engine' }}
+  CLOUD_RUN_SERVICE: ${{ vars.CLOUD_RUN_SERVICE || 'astro-api' }}
+  CLOUD_RUN_EPHEMERIS_BUCKET: ${{ vars.CLOUD_RUN_EPHEMERIS_BUCKET || 'daanyam-ephe' }}
+  CLOUD_RUN_SERVICE_ACCOUNT: ${{ vars.CLOUD_RUN_SERVICE_ACCOUNT }}
+  IMAGE_NAME: astro-api
+
+jobs:
+  build-push-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate repository configuration
+        run: |
+          test -n "${GCP_PROJECT_ID}" || { echo "Missing repository variable GCP_PROJECT_ID"; exit 1; }
+          test -n "${CLOUD_RUN_SERVICE_ACCOUNT}" || { echo "Missing repository variable CLOUD_RUN_SERVICE_ACCOUNT"; exit 1; }
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${GCP_REGION}-docker.pkg.dev --quiet
+
+      - name: Set image URI
+        id: image
+        run: |
+          echo "uri=${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}/${IMAGE_NAME}:${GITHUB_SHA}" >> "${GITHUB_OUTPUT}"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.image.outputs.uri }}
+            ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Render Cloud Run service manifest
+        run: |
+          sed \
+            -e "s|__CLOUD_RUN_SERVICE__|${CLOUD_RUN_SERVICE}|g" \
+            -e "s|__GCP_PROJECT_ID__|${GCP_PROJECT_ID}|g" \
+            -e "s|__GCP_REGION__|${GCP_REGION}|g" \
+            -e "s|__IMAGE_URI__|${{ steps.image.outputs.uri }}|g" \
+            -e "s|__CLOUD_RUN_SERVICE_ACCOUNT__|${CLOUD_RUN_SERVICE_ACCOUNT}|g" \
+            -e "s|__CLOUD_RUN_EPHEMERIS_BUCKET__|${CLOUD_RUN_EPHEMERIS_BUCKET}|g" \
+            deploy/cloudrun/service.yaml > /tmp/cloudrun-service.yaml
+
+      - name: Deploy to Cloud Run
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          metadata: /tmp/cloudrun-service.yaml
+          region: ${{ env.GCP_REGION }}
+          flags: --allow-unauthenticated
+
+      - name: Smoke test health endpoint
+        run: curl --fail --show-error --silent "${{ steps.deploy.outputs.url }}/health"

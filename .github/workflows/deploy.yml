@@ -77,7 +77,13 @@ jobs:
         with:
           metadata: /tmp/cloudrun-service.yaml
           region: ${{ env.GCP_REGION }}
-          flags: --allow-unauthenticated
+
+      - name: Allow unauthenticated access
+        run: |
+          gcloud run services add-iam-policy-binding "${CLOUD_RUN_SERVICE}" \
+            --region "${GCP_REGION}" \
+            --member "allUsers" \
+            --role "roles/run.invoker"
 
       - name: Smoke test health endpoint
         run: curl --fail --show-error --silent "${{ steps.deploy.outputs.url }}/health"

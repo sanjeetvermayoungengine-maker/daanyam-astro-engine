@@ -28,7 +28,9 @@ spec:
             - name: ASTRO_BACKEND
               value: de440
             - name: ASTRO_EPHE_PATH
-              value: /ephe/de440.bsp
+              value: /tmp/ephe/de440.bsp
+            - name: ASTRO_EPHE_CACHE_DIR
+              value: /tmp/ephe
             - name: ENVIRONMENT
               value: production
             - name: RUST_LOG
@@ -53,7 +55,7 @@ spec:
               port: 3000
           volumeMounts:
             - name: ephemeris
-              mountPath: /ephe
+              mountPath: /tmp/ephe
       volumes:
         - name: ephemeris
           csi:

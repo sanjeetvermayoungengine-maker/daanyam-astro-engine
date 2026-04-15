@@ -81,3 +81,8 @@ jobs:
 
       - name: Smoke test health endpoint
         run: curl --fail --show-error --silent "${{ steps.deploy.outputs.url }}/health"
+
+      - name: Verify deployed production contract
+        env:
+          ASTRO_API_BASE_URL: ${{ steps.deploy.outputs.url }}
+        run: cargo test -p astro-api --test production_contract

@@ -23,8 +23,6 @@ spec:
           env:
             - name: HOST
               value: 0.0.0.0
-            - name: PORT
-              value: "3000"
             - name: ASTRO_BACKEND
               value: de440
             - name: ASTRO_EPHE_PATH

@@ -18,10 +18,12 @@ RUN apt-get update \
 ENV HOST=0.0.0.0
 ENV PORT=3000
 ENV ASTRO_BACKEND=de440
-ENV ASTRO_EPHE_PATH=/ephe/de440.bsp
+ENV ASTRO_EPHE_PATH=/tmp/ephe/de440.bsp
+ENV ASTRO_EPHE_CACHE_DIR=/tmp/ephe
 
 WORKDIR /app
 COPY --from=builder /app/target/release/astro-api /usr/local/bin/astro-api
+RUN mkdir -p /tmp/ephe
 
 EXPOSE 3000
 

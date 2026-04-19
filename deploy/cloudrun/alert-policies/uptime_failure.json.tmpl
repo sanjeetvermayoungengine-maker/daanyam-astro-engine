@@ -1,0 +1,37 @@
+{
+  "displayName": "__POLICY_DISPLAY_NAME__",
+  "documentation": {
+    "content": "Uptime checks against `/health` are failing for `__SERVICE_NAME__`. Check the latest Cloud Run revision, service URL, and request logs before rolling forward.",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "enabled": true,
+  "notificationChannels": __NOTIFICATION_CHANNELS__,
+  "alertStrategy": {
+    "autoClose": "1800s"
+  },
+  "conditions": [
+    {
+      "displayName": "__SERVICE_NAME__ uptime check failures",
+      "conditionThreshold": {
+        "filter": "metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\" AND metric.label.check_id=\"__UPTIME_CHECK_ID__\" AND resource.type=\"uptime_url\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_NEXT_OLDER",
+            "crossSeriesReducer": "REDUCE_COUNT_FALSE",
+            "groupByFields": [
+              "resource.label.project_id"
+            ]
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 1,
+        "duration": "0s",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ]
+}

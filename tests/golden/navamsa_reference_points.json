@@ -1,0 +1,31 @@
+{
+  "vectors": [
+    { "sidereal_longitude_deg": 1.0, "expected_d9_rashi": "mesha" },
+    { "sidereal_longitude_deg": 4.0, "expected_d9_rashi": "vrishabha" },
+    { "sidereal_longitude_deg": 7.0, "expected_d9_rashi": "mithuna" },
+    { "sidereal_longitude_deg": 11.0, "expected_d9_rashi": "karka" },
+    { "sidereal_longitude_deg": 14.0, "expected_d9_rashi": "simha" },
+    { "sidereal_longitude_deg": 17.0, "expected_d9_rashi": "kanya" },
+    { "sidereal_longitude_deg": 21.0, "expected_d9_rashi": "tula" },
+    { "sidereal_longitude_deg": 24.0, "expected_d9_rashi": "vrischika" },
+    { "sidereal_longitude_deg": 28.0, "expected_d9_rashi": "dhanu" },
+    { "sidereal_longitude_deg": 31.0, "expected_d9_rashi": "makara" },
+    { "sidereal_longitude_deg": 34.0, "expected_d9_rashi": "kumbha" },
+    { "sidereal_longitude_deg": 38.0, "expected_d9_rashi": "meena" },
+    { "sidereal_longitude_deg": 44.0, "expected_d9_rashi": "vrishabha" },
+    { "sidereal_longitude_deg": 58.0, "expected_d9_rashi": "kanya" },
+    { "sidereal_longitude_deg": 62.0, "expected_d9_rashi": "tula" },
+    { "sidereal_longitude_deg": 74.0, "expected_d9_rashi": "kumbha" },
+    { "sidereal_longitude_deg": 94.0, "expected_d9_rashi": "simha" },
+    { "sidereal_longitude_deg": 122.0, "expected_d9_rashi": "mesha" },
+    { "sidereal_longitude_deg": 154.0, "expected_d9_rashi": "kumbha" },
+    { "sidereal_longitude_deg": 182.0, "expected_d9_rashi": "tula" },
+    { "sidereal_longitude_deg": 214.0, "expected_d9_rashi": "simha" },
+    { "sidereal_longitude_deg": 242.0, "expected_d9_rashi": "mesha" },
+    { "sidereal_longitude_deg": 274.0, "expected_d9_rashi": "kumbha" },
+    { "sidereal_longitude_deg": 302.0, "expected_d9_rashi": "tula" },
+    { "sidereal_longitude_deg": 334.0, "expected_d9_rashi": "simha" },
+    { "sidereal_longitude_deg": 351.0, "expected_d9_rashi": "makara" },
+    { "sidereal_longitude_deg": 359.0, "expected_d9_rashi": "meena" }
+  ]
+}

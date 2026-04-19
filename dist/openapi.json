@@ -145,6 +145,14 @@
               }
             ]
           },
+          "d3_rashi": {
+            "description": "Drekkana (D3) rashi derived from the graha sidereal longitude.",
+            "type": "string"
+          },
+          "d9_rashi": {
+            "description": "Navamsa (D9) rashi derived from the graha sidereal longitude.",
+            "type": "string"
+          },
           "distance_au": {
             "description": "Null when compact=true.",
             "type": [
@@ -395,6 +403,14 @@
         "properties": {
           "body": {
             "$ref": "#/components/schemas/CelestialBody"
+          },
+          "d3_rashi": {
+            "description": "Drekkana (D3) rashi derived from the graha sidereal longitude.",
+            "type": "string"
+          },
+          "d9_rashi": {
+            "description": "Navamsa (D9) rashi derived from the graha sidereal longitude.",
+            "type": "string"
           },
           "house_context": {
             "$ref": "#/components/schemas/GrahaHouseContext"
@@ -799,6 +815,20 @@
         },
         "type": "object"
       }
+    },
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "description": "API key issued for this service. Send the same secret in either this header or as a Bearer token.",
+        "in": "header",
+        "name": "x-api-key",
+        "type": "apiKey"
+      },
+      "BearerAuth": {
+        "bearerFormat": "API key",
+        "description": "Bearer token using the same secret as x-api-key (`Authorization: Bearer` …).",
+        "scheme": "bearer",
+        "type": "http"
+      }
     }
   },
   "info": {
@@ -831,6 +861,14 @@
             "description": "Sidereal chart"
           }
         },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Compute a sidereal chart payload"
       }
     },
@@ -858,6 +896,14 @@
             "description": "Tropical positions"
           }
         },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Compute tropical positions"
       }
     },
@@ -885,6 +931,14 @@
             "description": "Sidereal positions"
           }
         },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Compute Lahiri sidereal positions"
       }
     }

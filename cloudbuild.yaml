@@ -1,4 +1,32 @@
 steps:
+  - id: fetch-de440-kernel
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        mkdir -p /workspace/ephe
+        gcloud storage cp gs://${_CLOUD_RUN_EPHEMERIS_BUCKET}/de440.bsp /workspace/ephe/de440.bsp
+
+  - id: test-workspace
+    name: rust:1.80-bookworm
+    env:
+      - ASTRO_EPHE_PATH=/workspace/ephe/de440.bsp
+    args:
+      - cargo
+      - test
+      - --workspace
+
+  - id: bench-workspace
+    name: rust:1.80-bookworm
+    env:
+      - ASTRO_EPHE_PATH=/workspace/ephe/de440.bsp
+    args:
+      - cargo
+      - bench
+      - --workspace
+      - --no-run
+
   - id: build-image
     name: gcr.io/cloud-builders/docker
     args:

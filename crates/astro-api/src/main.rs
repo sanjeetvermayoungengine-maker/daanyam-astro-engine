@@ -1,6 +1,12 @@
 use std::{env, net::SocketAddr};
 
-use astro_api::{app_router, de440_state_from_env, demo_state, ApiState};
+use astro_api::{app_router, demo_state, ApiState};
+use astro_core::{
+    kernel_resolver::{resolve_kernel_from_env, KernelResolution},
+    time::julian_day,
+    De440Backend,
+};
+use chrono::{TimeZone, Utc};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum BackendMode {
@@ -63,34 +69,56 @@ fn ensure_demo_backend_allowed(backend_mode: BackendMode) -> Result<(), String> 
     Ok(())
 }
 
-fn app_state_from_env() -> Result<(ApiState, BackendMode, bool), String> {
+fn coverage_window_confirmed(backend: &De440Backend) -> bool {
+    let (coverage_start_jd, coverage_end_jd) = backend.coverage_range_jd();
+    let coverage_start = julian_day(Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap());
+    let coverage_end = julian_day(Utc.with_ymd_and_hms(2150, 1, 1, 0, 0, 0).unwrap());
+    coverage_start_jd <= coverage_start && coverage_end_jd >= coverage_end
+}
+
+async fn app_state_from_env() -> Result<(ApiState, BackendMode, Option<KernelResolution>), String> {
     let backend_mode = BackendMode::from_env(env::var("ASTRO_BACKEND").ok().as_deref())?;
     ensure_demo_backend_allowed(backend_mode)?;
     match backend_mode {
-        BackendMode::Demo => Ok((demo_state(), backend_mode, false)),
+        BackendMode::Demo => Ok((demo_state(), backend_mode, None)),
         BackendMode::De440 => {
-            let kernel_path = env::var("ASTRO_EPHE_PATH").map_err(|_| {
-                "ASTRO_BACKEND=de440 requires ASTRO_EPHE_PATH to point to a readable de440.bsp file"
-                    .to_owned()
+            let resolution = resolve_kernel_from_env().await.map_err(|error| {
+                format!("failed to resolve DE440 kernel from runtime environment: {error}")
             })?;
-            let state = de440_state_from_env().map_err(|error| {
+            let backend = De440Backend::from_path(&resolution.path).map_err(|error| {
                 format!(
-                    "failed to initialize DE440 backend from ASTRO_EPHE_PATH=`{kernel_path}`: {error}"
+                    "failed to initialize DE440 backend from resolved path `{}`: {error}",
+                    resolution.path.display()
                 )
             })?;
-            Ok((state, backend_mode, true))
+            if !coverage_window_confirmed(&backend) {
+                return Err(format!(
+                    "resolved DE440 kernel at `{}` does not cover the required 2024–2150 window",
+                    resolution.path.display()
+                ));
+            }
+            let state = ApiState::new(
+                std::sync::Arc::new(backend),
+                astro_core::EngineConfig::default(),
+                env!("CARGO_PKG_VERSION"),
+            );
+            Ok((state, backend_mode, Some(resolution)))
         }
     }
 }
 
 #[tokio::main]
 async fn main() {
-    let (state, backend_mode, kernel_loaded) =
-        app_state_from_env().expect("runtime backend initialization must succeed");
-    eprintln!(
-        "astro-api starting with ASTRO_BACKEND={} kernel_loaded={kernel_loaded}",
-        backend_mode.as_str()
-    );
+    let (state, backend_mode, kernel_resolution) =
+        app_state_from_env().await.expect("runtime backend initialization must succeed");
+    if let Some(kernel_resolution) = kernel_resolution {
+        eprintln!(
+            "INFO de440 kernel loaded from {} in {}ms, 2024–2150 coverage confirmed",
+            kernel_resolution.source,
+            kernel_resolution.elapsed.as_millis()
+        );
+    }
+    eprintln!("astro-api starting with ASTRO_BACKEND={}", backend_mode.as_str());
     let app = app_router(state);
     let addr =
         bind_addr_from_env_vars(env::var("HOST").ok().as_deref(), env::var("PORT").ok().as_deref())
@@ -140,18 +168,19 @@ mod tests {
         assert!(error.contains("ASTRO_BACKEND"));
     }
 
-    #[test]
-    fn app_state_uses_demo_without_kernel() {
+    #[tokio::test(flavor = "current_thread")]
+    async fn app_state_uses_demo_without_kernel() {
         let _guard = env_lock();
         std::env::remove_var("ASTRO_BACKEND");
         std::env::remove_var("ASTRO_EPHE_PATH");
+        std::env::remove_var("ASTRO_EPHE_GCS_URI");
         std::env::remove_var("ENVIRONMENT");
         std::env::remove_var("NODE_ENV");
         std::env::remove_var("ALLOW_DEMO_BACKEND");
-        let (_, mode, kernel_loaded) =
-            app_state_from_env().expect("demo backend must initialize without kernel");
+        let (_, mode, kernel_resolution) =
+            app_state_from_env().await.expect("demo backend must initialize without kernel");
         assert_eq!(mode, BackendMode::Demo);
-        assert!(!kernel_loaded);
+        assert!(kernel_resolution.is_none());
     }
 
     #[test]

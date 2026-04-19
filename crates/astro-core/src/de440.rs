@@ -208,6 +208,40 @@ impl De440Backend {
         &self.header
     }
 
+    pub fn coverage_range_jd(&self) -> (f64, f64) {
+        let start_seconds = [
+            self.mercury_barycenter_segment.initial_epoch_seconds,
+            self.venus_barycenter_segment.initial_epoch_seconds,
+            self.earth_moon_barycenter_segment.initial_epoch_seconds,
+            self.mars_barycenter_segment.initial_epoch_seconds,
+            self.jupiter_barycenter_segment.initial_epoch_seconds,
+            self.saturn_barycenter_segment.initial_epoch_seconds,
+            self.sun_segment.initial_epoch_seconds,
+            self.moon_segment.initial_epoch_seconds,
+            self.earth_segment.initial_epoch_seconds,
+        ]
+        .into_iter()
+        .fold(f64::NEG_INFINITY, f64::max);
+        let end_seconds = [
+            self.mercury_barycenter_segment.final_epoch_seconds,
+            self.venus_barycenter_segment.final_epoch_seconds,
+            self.earth_moon_barycenter_segment.final_epoch_seconds,
+            self.mars_barycenter_segment.final_epoch_seconds,
+            self.jupiter_barycenter_segment.final_epoch_seconds,
+            self.saturn_barycenter_segment.final_epoch_seconds,
+            self.sun_segment.final_epoch_seconds,
+            self.moon_segment.final_epoch_seconds,
+            self.earth_segment.final_epoch_seconds,
+        ]
+        .into_iter()
+        .fold(f64::INFINITY, f64::min);
+
+        (
+            J2000_JULIAN_DAY + (start_seconds / SECONDS_PER_DAY),
+            J2000_JULIAN_DAY + (end_seconds / SECONDS_PER_DAY),
+        )
+    }
+
     fn open_file(&self) -> Result<File, BackendError> {
         File::open(&self.path).map_err(|err| BackendError::Io {
             context: "opening ephemeris file",

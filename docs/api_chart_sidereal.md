@@ -65,7 +65,7 @@ Stable `data` fields:
 - `node_policy`
 - `lahiri_algorithm`
 
-`grahas[]` reuses the sidereal chart graha shape: tropical/sidereal coordinates, per-body computation metadata, plus `sidereal_rashi`, `whole_sign_house`, and `house_context`.
+`grahas[]` reuses the sidereal chart graha shape: tropical/sidereal coordinates, per-body computation metadata, plus `sidereal_rashi`, additive divisional placement fields such as `d3_rashi` and `d9_rashi`, `whole_sign_house`, and `house_context`.
 
 The current chart route always returns these bodies in payload order:
 
@@ -107,6 +107,8 @@ Example response excerpt:
         {
           "body": "sun",
           "sidereal_rashi": "dhanu",
+          "d3_rashi": "mesha",
+          "d9_rashi": "simha",
           "whole_sign_house": 10,
           "sign_lord": "jupiter",
           "house_context": {
@@ -148,6 +150,8 @@ Example response excerpt:
         "sidereal_longitude_deg": 256.5053219412652,
         "longitude_speed_deg_per_day": 1.0193,
         "sidereal_rashi": "dhanu",
+        "d3_rashi": "mesha",
+        "d9_rashi": "simha",
         "whole_sign_house": 10,
         "house_context": {
           "whole_sign_house": 10,
@@ -210,13 +214,15 @@ Example response excerpt:
 Whole Sign house assignment for each graha is computed from sidereal sign indices using the chart lagna sign as house 1:
 `whole_sign_house = ((graha_sign_index - lagna_sign_index + 12) % 12) + 1`.
 `sidereal_rashi` is the graha's rashi derived from its sidereal longitude in the same Lahiri sidereal frame.
+`d3_rashi` is the additive Drekkana (D3) rashi derived from the same sidereal longitude using the classical 1st/5th/9th sign sequence within each 10 degree segment.
+`d9_rashi` is the additive Navamsa (D9) rashi derived from the same sidereal longitude. It is present in both full and compact chart responses.
 `longitude_speed_deg_per_day` is the geometric ecliptic longitude speed from the same apparent geocentric DE440 longitude pipeline, measured as signed degrees per day around the resolved UTC instant. `retrograde` is derived from the sign of that same speed: negative means retrograde; zero or positive means direct.
 The seeded demo backend used in non-kernel tests is intentionally static, so seeded fixture responses may report `longitude_speed_deg_per_day = 0.0`. Real DE440-backed responses should show non-zero motion for moving bodies like the Moon.
 
 `dasha` is a compact chart summary derived deterministically from the chart Moon sidereal longitude and the resolved birth datetime. It returns the Moon's birth `nakshatra` and `pada`, plus the current Vimshottari `maha`, `antar`, and `pratyantar` periods as UTC ISO timestamps from the existing deterministic dasha engine. If `as_of` is omitted, `dasha.as_of_utc` defaults to the resolved birth datetime; if `as_of` is provided, the current dasha periods are selected for that explicit UTC instant.
 
 `summary` is the compact whole-sign chart digest. `lagna_lord` is the classical ruler of `lagna_rashi`. `house_lords` is a 12-entry array aligned to houses 1..12, where each entry is the classical ruler of that house's whole-sign rashi. `summary.houses` is a 12-entry occupancy array aligned to houses 1..12, where each entry is `{ house, occupants }` and `occupants` is derived only from the existing `grahas[]` `body` and `whole_sign_house` fields. `summary.grahas_by_rashi` groups body ids by `grahas[].sidereal_rashi` and does not duplicate longitude data. `summary.dispositors` is a one-hop dispositor summary derived from each graha's occupied sidereal rashi using the same rashi-lord mapping already used for `house_lords`.
-`summary.placement_table` is the canonical convenience view for at-a-glance placement rendering. It is derived only from the existing `grahas[]` payload, and `grahas[]` remains the canonical per-body source of truth for full chart detail. If additional at-a-glance placement columns are needed in future additive revisions, they should extend `summary.placement_table` rather than introducing a parallel placement summary array.
+`summary.placement_table` is the canonical convenience view for at-a-glance placement rendering. It is derived only from the existing `grahas[]` payload, and `grahas[]` remains the canonical per-body source of truth for full chart detail. Additive divisional placement columns such as `d3_rashi` and `d9_rashi` extend `summary.placement_table` rather than introducing a parallel placement summary array.
 Each graha `house_context` is also one-hop only: `house_lord` is the lord of the graha's occupied sidereal rashi, derived from the same sign-lord table as `house_lords`.
 `summary.motion` is derived only from the existing `grahas[]` output. `retrograde_bodies` lists graha ids whose `retrograde` field is `true`. `fastest` is the graha with the highest absolute `longitude_speed_deg_per_day` among the chart grahas.
 
@@ -240,6 +246,8 @@ Compact omission table:
 | `grahas[].sidereal_longitude_deg` | present | present |
 | `grahas[].longitude_speed_deg_per_day` | present | present |
 | `grahas[].sidereal_rashi` | present | present |
+| `grahas[].d3_rashi` | present | present |
+| `grahas[].d9_rashi` | present | present |
 | `grahas[].whole_sign_house` | present | present |
 | `grahas[].house_context` | present | present |
 | `grahas[].retrograde` | present | present |

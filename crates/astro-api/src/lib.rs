@@ -1,6 +1,10 @@
 #![recursion_limit = "256"]
 
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    sync::{Arc, Mutex},
+    time::{Duration, Instant},
+};
 
 use astro_core::{
     time::{julian_day, resolve_datetime_input, utc_julian_day_to_tdb_julian_day},
@@ -9,25 +13,44 @@ use astro_core::{
     GeolocationInput, HouseSystem, InMemoryBackend, PositionResult, ResultMetadata,
 };
 use astro_vedic::{
-    lagna_position_from_sidereal_longitude, moon_sidereal_division_from_tropical,
-    sidereal_division, sidereal_longitude_deg, vimshottari_dasha, vimshottari_dasha_at,
-    whole_sign_houses_from_sidereal_ascendant, LagnaPosition, Nakshatra, Rashi, SiderealDivision,
-    VimshottariDasha, WholeSignHouse, LAHIRI_ALGO_ID,
+    drekkana_sign, lagna_position_from_sidereal_longitude, moon_sidereal_division_from_tropical,
+    navamsa_sign, sidereal_division, sidereal_longitude_deg, vimshottari_dasha,
+    vimshottari_dasha_at, whole_sign_houses_from_sidereal_ascendant, LagnaPosition, Nakshatra,
+    Rashi, SiderealDivision, VimshottariDasha, WholeSignHouse, LAHIRI_ALGO_ID,
 };
 use axum::{
-    extract::State,
-    http::StatusCode,
+    body::{to_bytes, Body},
+    extract::{Request, State},
+    http::{HeaderMap, HeaderValue, Method, StatusCode},
+    middleware::{self, Next},
+    response::{Html, IntoResponse, Response},
     routing::{get, post},
     Json, Router,
 };
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
+use sha2::{Digest, Sha256};
+use uuid::Uuid;
 
 pub const ENGINE_SEMANTIC_VERSION: &str = "0.17.0";
 pub const NODE_POLICY_ID: &str = "true_node_mean_ecliptic_of_date";
 pub const CHART_SIDEREAL_SCHEMA_VERSION: &str = "chart_sidereal_v1";
 const RETROGRADE_DELTA_DAYS: f64 = 0.5;
+const REQUEST_ID_HEADER: &str = "x-request-id";
+const CORRELATION_ID_HEADER: &str = "x-correlation-id";
+const TRACEPARENT_HEADER: &str = "traceparent";
+const CLOUD_TRACE_CONTEXT_HEADER: &str = "x-cloud-trace-context";
+const VALID_API_KEYS_ENV_VAR: &str = "VALID_API_KEYS";
+const RATE_LIMIT_RPM_ENV_VAR: &str = "RATE_LIMIT_RPM";
+const RETRY_AFTER_HEADER: &str = "retry-after";
+const API_KEY_HEADER: &str = "x-api-key";
+const AUTHORIZATION_HEADER: &str = "authorization";
+const API_KEY_LOG_PREFIX_CHARS: usize = 8;
+
+/// Redoc UI loads the spec from the same origin (`GET /openapi.json`). The bundle is pinned for stable builds.
+const REDOC_STANDALONE_JS: &str =
+    "https://cdn.jsdelivr.net/npm/redoc@2.5.1/bundles/redoc.standalone.js";
 
 #[derive(Clone)]
 pub struct ApiState {
@@ -145,6 +168,8 @@ pub struct ChartGrahaPositionResult {
     pub sidereal_longitude_deg: f64,
     pub longitude_speed_deg_per_day: f64,
     pub sidereal_rashi: Rashi,
+    pub d3_rashi: Rashi,
+    pub d9_rashi: Rashi,
     pub whole_sign_house: u8,
     pub house_context: GrahaHouseContext,
     pub retrograde: bool,
@@ -207,6 +232,8 @@ pub struct GrahaHouseContext {
 pub struct GrahaPlacementSummary {
     pub body: CelestialBody,
     pub sidereal_rashi: Rashi,
+    pub d3_rashi: Rashi,
+    pub d9_rashi: Rashi,
     pub whole_sign_house: u8,
     pub sign_lord: CelestialBody,
     pub house_context: GrahaHouseContext,
@@ -241,14 +268,419 @@ pub struct ErrorPayload {
 }
 
 pub fn app_router(state: ApiState) -> Router {
+    let auth = ApiAuthConfig::from_env();
+    build_app_router(state, auth)
+}
+
+pub fn app_router_with_api_keys<I, S>(state: ApiState, valid_api_keys: I) -> Router
+where
+    I: IntoIterator<Item = S>,
+    S: Into<String>,
+{
+    let auth = ApiAuthConfig::from_keys(valid_api_keys);
+    build_app_router(state, auth)
+}
+
+fn build_app_router(state: ApiState, auth: ApiAuthConfig) -> Router {
+    let rate_limiter = RateLimiter::from_env();
     Router::new()
         .route("/health", get(health))
         .route("/positions", post(positions))
         .route("/positions/sidereal", post(sidereal_positions))
         .route("/chart/sidereal", post(sidereal_chart))
         .route("/openapi.json", get(openapi_json))
+        .route("/docs", get(redoc_docs))
         .route("/dasha", post(dasha))
         .with_state(state)
+        .layer(middleware::from_fn({
+            let rate_limiter = rate_limiter.clone();
+            move |request, next| {
+                let rate_limiter = rate_limiter.clone();
+                async move { rate_limit_middleware(request, next, rate_limiter).await }
+            }
+        }))
+        .layer(middleware::from_fn(move |request, next| {
+            let auth = auth.clone();
+            async move { auth_middleware(request, next, auth).await }
+        }))
+        .layer(middleware::from_fn(observability_middleware))
+}
+
+#[derive(Clone, Debug)]
+struct ApiAuthConfig {
+    valid_keys: Arc<HashSet<String>>,
+}
+
+impl ApiAuthConfig {
+    fn from_env() -> Self {
+        Self::from_csv(std::env::var(VALID_API_KEYS_ENV_VAR).ok().as_deref())
+    }
+
+    fn from_keys<I, S>(keys: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        let valid_keys = keys.into_iter().map(Into::into).collect::<HashSet<_>>();
+        Self { valid_keys: Arc::new(valid_keys) }
+    }
+
+    fn from_csv(value: Option<&str>) -> Self {
+        let valid_keys = value
+            .unwrap_or_default()
+            .split(',')
+            .map(str::trim)
+            .filter(|key| !key.is_empty())
+            .map(str::to_owned)
+            .collect::<HashSet<_>>();
+        Self { valid_keys: Arc::new(valid_keys) }
+    }
+
+    fn is_valid_key(&self, key: &str) -> bool {
+        self.valid_keys.contains(key)
+    }
+}
+
+#[derive(Clone)]
+struct RateLimiter {
+    rpm: u32,
+    inner: Arc<Mutex<HashMap<String, VecDeque<Instant>>>>,
+}
+
+impl RateLimiter {
+    fn from_env() -> Self {
+        Self::new(rate_limit_rpm_from_env())
+    }
+
+    fn new(rpm: u32) -> Self {
+        Self { rpm, inner: Arc::new(Mutex::new(HashMap::new())) }
+    }
+
+    fn is_enabled(&self) -> bool {
+        self.rpm > 0
+    }
+
+    /// Returns `Ok(())` when the request is allowed, or `Err(retry_after_seconds)` when limited.
+    fn try_acquire(&self, key: &str, now: Instant) -> Result<(), u64> {
+        if !self.is_enabled() {
+            return Ok(());
+        }
+        let mut guard = self.inner.lock().expect("rate limiter mutex poisoned");
+        let timestamps = guard.entry(key.to_owned()).or_default();
+        prune_rolling_window(timestamps, now);
+        let limit = self.rpm as usize;
+        if timestamps.len() < limit {
+            timestamps.push_back(now);
+            Ok(())
+        } else {
+            Err(retry_after_seconds_for_window(timestamps.front().copied(), now))
+        }
+    }
+}
+
+fn rate_limit_rpm_from_env() -> u32 {
+    std::env::var(RATE_LIMIT_RPM_ENV_VAR)
+        .ok()
+        .and_then(|value| value.trim().parse().ok())
+        .unwrap_or(0)
+}
+
+fn prune_rolling_window(timestamps: &mut VecDeque<Instant>, now: Instant) {
+    let window = Duration::from_secs(60);
+    while let Some(&front) = timestamps.front() {
+        if now.saturating_duration_since(front) >= window {
+            timestamps.pop_front();
+        } else {
+            break;
+        }
+    }
+}
+
+fn retry_after_seconds_for_window(oldest: Option<Instant>, now: Instant) -> u64 {
+    let window = Duration::from_secs(60);
+    let oldest = match oldest {
+        Some(inst) => inst,
+        None => return 1,
+    };
+    let elapsed = now.saturating_duration_since(oldest);
+    if elapsed >= window {
+        return 1;
+    }
+    let remaining = window - elapsed;
+    remaining.as_secs().max(1)
+}
+
+async fn rate_limit_middleware(request: Request, next: Next, limiter: RateLimiter) -> Response {
+    if !limiter.is_enabled() {
+        return next.run(request).await;
+    }
+
+    let method = request.method().clone();
+    let path = request.uri().path();
+    if is_public_route(&method, path) {
+        return next.run(request).await;
+    }
+
+    let Some(api_key) = request_api_key(request.headers()) else {
+        return next.run(request).await;
+    };
+
+    let now = Instant::now();
+    match limiter.try_acquire(api_key, now) {
+        Ok(()) => next.run(request).await,
+        Err(retry_after_secs) => rate_limited_response(retry_after_secs),
+    }
+}
+
+fn rate_limited_response(retry_after_secs: u64) -> Response {
+    let mut response = (
+        StatusCode::TOO_MANY_REQUESTS,
+        Json(ErrorPayload { error: "rate_limit_exceeded".to_owned() }),
+    )
+        .into_response();
+    if let Ok(value) = HeaderValue::from_str(&retry_after_secs.to_string()) {
+        response.headers_mut().insert(RETRY_AFTER_HEADER, value);
+    }
+    response
+}
+
+/// Returns a log-safe prefix of the API key (never the full secret).
+fn api_key_prefix_for_log(key: Option<&str>) -> String {
+    let Some(key) = key.map(str::trim).filter(|value| !value.is_empty()) else {
+        return "none".to_owned();
+    };
+    let mut chars = key.chars();
+    let prefix: String = chars.by_ref().take(API_KEY_LOG_PREFIX_CHARS).collect();
+    if chars.next().is_some() {
+        format!("{prefix}…")
+    } else {
+        prefix
+    }
+}
+
+async fn auth_middleware(request: Request, next: Next, auth: ApiAuthConfig) -> Response {
+    if is_public_route(request.method(), request.uri().path()) {
+        return next.run(request).await;
+    }
+
+    match request_api_key(request.headers()) {
+        Some(key) if auth.is_valid_key(key) => next.run(request).await,
+        Some(_) => unauthorized_response("invalid_api_key"),
+        None => unauthorized_response("missing_api_key"),
+    }
+}
+
+fn is_public_route(method: &Method, path: &str) -> bool {
+    matches!(
+        (method, path),
+        (&Method::GET, "/health")
+            | (&Method::GET, "/openapi.json")
+            | (&Method::GET, "/docs")
+    )
+}
+
+fn request_api_key(headers: &HeaderMap) -> Option<&str> {
+    headers
+        .get(API_KEY_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .or_else(|| bearer_token(headers))
+}
+
+fn bearer_token(headers: &HeaderMap) -> Option<&str> {
+    headers
+        .get(AUTHORIZATION_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Bearer "))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn unauthorized_response(error: &'static str) -> Response {
+    (StatusCode::UNAUTHORIZED, Json(ErrorPayload { error: error.to_owned() })).into_response()
+}
+
+async fn observability_middleware(mut request: Request, next: Next) -> Response {
+    let started_at = Instant::now();
+    let method = request.method().clone();
+    let path = request.uri().path().to_owned();
+    let query = request.uri().query().map(str::to_owned);
+    let headers = request.headers().clone();
+    let request_id = request_id_from_headers(&headers).unwrap_or_else(generate_request_id);
+    let api_key_prefix = api_key_prefix_for_log(request_api_key(&headers));
+    let body_hash = capture_request_body_hash(&mut request).await;
+
+    let mut response = next.run(request).await;
+    if let Ok(header_value) = HeaderValue::from_str(&request_id) {
+        response.headers_mut().insert(REQUEST_ID_HEADER, header_value);
+    }
+
+    emit_request_log(RequestLogEntry {
+        method: &method,
+        path: &path,
+        query: query.as_deref(),
+        status: response.status().as_u16(),
+        latency_ms: started_at.elapsed().as_millis(),
+        request_id: &request_id,
+        body_hash: body_hash.as_deref(),
+        api_key_prefix: &api_key_prefix,
+        headers: &headers,
+    });
+
+    response
+}
+
+struct RequestLogEntry<'a> {
+    method: &'a Method,
+    path: &'a str,
+    query: Option<&'a str>,
+    status: u16,
+    latency_ms: u128,
+    request_id: &'a str,
+    body_hash: Option<&'a str>,
+    api_key_prefix: &'a str,
+    headers: &'a HeaderMap,
+}
+
+fn emit_request_log(entry: RequestLogEntry<'_>) {
+    let mut payload = json!({
+        "severity": request_log_severity(entry.status),
+        "message": "api_usage",
+        "request_id": entry.request_id,
+        "api_key_prefix": entry.api_key_prefix,
+        "method": entry.method.as_str(),
+        "path": entry.path,
+        "status": entry.status,
+        "latency_ms": entry.latency_ms,
+    });
+
+    if let Some(query) = entry.query {
+        payload["query"] = json!(query);
+    }
+
+    if let Some(body_hash) = entry.body_hash {
+        payload["request_body_hash"] = json!(body_hash);
+    }
+
+    if let Some(user_agent) = header_value(entry.headers, axum::http::header::USER_AGENT.as_str()) {
+        payload["user_agent"] = json!(user_agent);
+    }
+
+    if let Some(remote_ip) = forwarded_for_ip(entry.headers) {
+        payload["remote_ip"] = json!(remote_ip);
+    }
+
+    if let Some(traceparent) = header_value(entry.headers, TRACEPARENT_HEADER) {
+        payload["traceparent"] = json!(traceparent);
+    }
+
+    if let Some((trace, span_id, sampled)) = cloud_logging_trace_fields(entry.headers) {
+        payload["logging.googleapis.com/trace"] = json!(trace);
+        if let Some(span_id) = span_id {
+            payload["logging.googleapis.com/spanId"] = json!(span_id);
+        }
+        if let Some(sampled) = sampled {
+            payload["logging.googleapis.com/trace_sampled"] = json!(sampled);
+        }
+    }
+
+    eprintln!("{payload}");
+}
+
+fn request_log_severity(status: u16) -> &'static str {
+    match status {
+        500..=599 => "ERROR",
+        400..=499 => "WARNING",
+        _ => "INFO",
+    }
+}
+
+fn request_id_from_headers(headers: &HeaderMap) -> Option<String> {
+    [REQUEST_ID_HEADER, CORRELATION_ID_HEADER]
+        .into_iter()
+        .find_map(|name| header_value(headers, name))
+        .filter(|value| !value.is_empty())
+}
+
+fn generate_request_id() -> String {
+    Uuid::new_v4().to_string()
+}
+
+async fn capture_request_body_hash(request: &mut Request) -> Option<String> {
+    if !request_body_hashing_enabled(request.method(), request.headers()) {
+        return None;
+    }
+
+    let request_to_buffer = std::mem::replace(request, Request::new(Body::empty()));
+    let (parts, body) = request_to_buffer.into_parts();
+    let bytes = to_bytes(body, usize::MAX).await.ok()?;
+    let hash = if bytes.is_empty() { None } else { Some(body_hash(&bytes)) };
+    *request = Request::from_parts(parts, Body::from(bytes));
+    hash
+}
+
+fn request_body_hashing_enabled(method: &Method, headers: &HeaderMap) -> bool {
+    matches!(*method, Method::POST | Method::PUT | Method::PATCH)
+        && header_value(headers, axum::http::header::CONTENT_TYPE.as_str())
+            .is_some_and(|content_type| content_type.starts_with("application/json"))
+}
+
+fn body_hash(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    let digest = hasher.finalize();
+    format!("sha256:{}", format_sha256(&digest))
+}
+
+fn format_sha256(bytes: &[u8]) -> String {
+    let mut hex = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        use std::fmt::Write as _;
+        let _ = write!(&mut hex, "{byte:02x}");
+    }
+    hex
+}
+
+fn cloud_logging_trace_fields(
+    headers: &HeaderMap,
+) -> Option<(String, Option<String>, Option<bool>)> {
+    let project_id = google_cloud_project_id()?;
+    let cloud_trace_context = header_value(headers, CLOUD_TRACE_CONTEXT_HEADER)?;
+    let trace_id = cloud_trace_context
+        .split('/')
+        .next()
+        .map(str::trim)
+        .filter(|trace_id| !trace_id.is_empty())?;
+    let span_id = cloud_trace_context
+        .split('/')
+        .nth(1)
+        .and_then(|tail| tail.split(';').next())
+        .map(str::trim)
+        .filter(|span_id| !span_id.is_empty())
+        .map(str::to_owned);
+    let sampled = cloud_trace_context.split(";o=").nth(1).and_then(|value| match value.trim() {
+        "1" => Some(true),
+        "0" => Some(false),
+        _ => None,
+    });
+    Some((format!("projects/{project_id}/traces/{trace_id}"), span_id, sampled))
+}
+
+fn google_cloud_project_id() -> Option<String> {
+    ["GOOGLE_CLOUD_PROJECT", "GCP_PROJECT", "GCLOUD_PROJECT"]
+        .into_iter()
+        .find_map(|name| std::env::var(name).ok())
+        .filter(|value| !value.trim().is_empty())
+}
+
+fn header_value(headers: &HeaderMap, name: &str) -> Option<String> {
+    headers.get(name).and_then(|value| value.to_str().ok()).map(str::to_owned)
+}
+
+fn forwarded_for_ip(headers: &HeaderMap) -> Option<String> {
+    header_value(headers, "x-forwarded-for")
+        .map(|value| value.split(',').next().map(str::trim).unwrap_or("").to_owned())
 }
 
 async fn health(State(state): State<ApiState>) -> Json<HealthResponse> {
@@ -257,6 +689,23 @@ async fn health(State(state): State<ApiState>) -> Json<HealthResponse> {
 
 async fn openapi_json() -> Json<Value> {
     Json(openapi_spec())
+}
+
+async fn redoc_docs() -> Html<String> {
+    Html(format!(
+        r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Daanyam Astro Engine API</title>
+</head>
+<body>
+  <redoc spec-url="/openapi.json"></redoc>
+  <script src="{REDOC_STANDALONE_JS}" crossorigin="anonymous"></script>
+</body>
+</html>"#
+    ))
 }
 
 async fn positions(
@@ -544,6 +993,8 @@ fn build_chart_graha_position(
         sidereal_longitude_deg: graha.sidereal_longitude_deg,
         longitude_speed_deg_per_day: graha.longitude_speed_deg_per_day,
         sidereal_rashi,
+        d3_rashi: drekkana_sign(graha.sidereal_longitude_deg),
+        d9_rashi: navamsa_sign(graha.sidereal_longitude_deg),
         whole_sign_house,
         house_context: GrahaHouseContext {
             whole_sign_house,
@@ -620,6 +1071,8 @@ fn chart_placement_table(grahas: &[ChartGrahaPositionResult]) -> Vec<GrahaPlacem
         .map(|graha| GrahaPlacementSummary {
             body: graha.body,
             sidereal_rashi: graha.sidereal_rashi,
+            d3_rashi: graha.d3_rashi,
+            d9_rashi: graha.d9_rashi,
             whole_sign_house: graha.whole_sign_house,
             sign_lord: rashi_lord(graha.sidereal_rashi),
             house_context: GrahaHouseContext {
@@ -737,6 +1190,10 @@ pub fn openapi_spec() -> Value {
             "/positions": {
                 "post": {
                     "summary": "Compute tropical positions",
+                    "security": [
+                        { "ApiKeyAuth": [] },
+                        { "BearerAuth": [] }
+                    ],
                     "requestBody": {
                         "required": true,
                         "content": {
@@ -760,6 +1217,10 @@ pub fn openapi_spec() -> Value {
             "/positions/sidereal": {
                 "post": {
                     "summary": "Compute Lahiri sidereal positions",
+                    "security": [
+                        { "ApiKeyAuth": [] },
+                        { "BearerAuth": [] }
+                    ],
                     "requestBody": {
                         "required": true,
                         "content": {
@@ -783,6 +1244,10 @@ pub fn openapi_spec() -> Value {
             "/chart/sidereal": {
                 "post": {
                     "summary": "Compute a sidereal chart payload",
+                    "security": [
+                        { "ApiKeyAuth": [] },
+                        { "BearerAuth": [] }
+                    ],
                     "requestBody": {
                         "required": true,
                         "content": {
@@ -805,6 +1270,20 @@ pub fn openapi_spec() -> Value {
             }
         },
         "components": {
+            "securitySchemes": {
+                "ApiKeyAuth": {
+                    "type": "apiKey",
+                    "in": "header",
+                    "name": "x-api-key",
+                    "description": "API key issued for this service. Send the same secret in either this header or as a Bearer token."
+                },
+                "BearerAuth": {
+                    "type": "http",
+                    "scheme": "bearer",
+                    "bearerFormat": "API key",
+                    "description": "Bearer token using the same secret as x-api-key (`Authorization: Bearer` …)."
+                }
+            },
             "schemas": {
                 "PositionsRequest": {
                     "type": "object",
@@ -1049,6 +1528,14 @@ pub fn openapi_spec() -> Value {
                         "sidereal_longitude_deg": { "type": "number" },
                         "longitude_speed_deg_per_day": { "type": "number" },
                         "sidereal_rashi": { "type": "string" },
+                        "d3_rashi": {
+                            "type": "string",
+                            "description": "Drekkana (D3) rashi derived from the graha sidereal longitude."
+                        },
+                        "d9_rashi": {
+                            "type": "string",
+                            "description": "Navamsa (D9) rashi derived from the graha sidereal longitude."
+                        },
                         "whole_sign_house": { "type": "integer" },
                         "house_context": { "$ref": "#/components/schemas/GrahaHouseContext" },
                         "retrograde": { "type": "boolean" },
@@ -1124,6 +1611,14 @@ pub fn openapi_spec() -> Value {
                     "properties": {
                         "body": { "$ref": "#/components/schemas/CelestialBody" },
                         "sidereal_rashi": { "type": "string" },
+                        "d3_rashi": {
+                            "type": "string",
+                            "description": "Drekkana (D3) rashi derived from the graha sidereal longitude."
+                        },
+                        "d9_rashi": {
+                            "type": "string",
+                            "description": "Navamsa (D9) rashi derived from the graha sidereal longitude."
+                        },
                         "whole_sign_house": { "type": "integer" },
                         "sign_lord": { "$ref": "#/components/schemas/CelestialBody" },
                         "house_context": { "$ref": "#/components/schemas/GrahaHouseContext" }
@@ -1338,18 +1833,30 @@ pub fn example_house_system() -> HouseSystem {
 #[cfg(test)]
 mod tests {
     use axum::{
-        body::to_bytes,
         body::Body,
         http::{Method, Request, StatusCode},
     };
     use serde_json::Value;
+    use std::sync::{Mutex, OnceLock};
+    use std::time::{Duration, Instant};
     use tower::util::ServiceExt;
 
     use super::*;
 
+    const TEST_API_KEY: &str = "test-api-key";
+
+    fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(())).lock().expect("env lock poisoned")
+    }
+
+    fn test_app() -> Router {
+        app_router_with_api_keys(demo_state(), [TEST_API_KEY])
+    }
+
     #[tokio::test]
     async fn health_endpoint_reports_version() {
-        let app = app_router(demo_state());
+        let app = test_app();
         let response = app
             .oneshot(
                 Request::builder()
@@ -1362,16 +1869,169 @@ mod tests {
             .expect("response must succeed");
 
         assert_eq!(response.status(), StatusCode::OK);
+        assert!(response.headers().contains_key(REQUEST_ID_HEADER));
+    }
+
+    #[tokio::test]
+    async fn request_id_header_is_preserved_when_provided() {
+        let app = test_app();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/health")
+                    .header(REQUEST_ID_HEADER, "webapp-request-123")
+                    .body(Body::empty())
+                    .expect("request must build"),
+            )
+            .await
+            .expect("response must succeed");
+
+        assert_eq!(
+            response.headers().get(REQUEST_ID_HEADER).and_then(|value| value.to_str().ok()),
+            Some("webapp-request-123")
+        );
+    }
+
+    #[tokio::test]
+    async fn correlation_id_header_promotes_to_request_id() {
+        let app = test_app();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/health")
+                    .header(CORRELATION_ID_HEADER, "correlation-456")
+                    .body(Body::empty())
+                    .expect("request must build"),
+            )
+            .await
+            .expect("response must succeed");
+
+        assert_eq!(
+            response.headers().get(REQUEST_ID_HEADER).and_then(|value| value.to_str().ok()),
+            Some("correlation-456")
+        );
+    }
+
+    #[test]
+    fn body_hash_is_stable_sha256() {
+        assert_eq!(
+            body_hash(br#"{"julian_day":2451545.0}"#),
+            "sha256:1e79c420a159cd5ddbc419ed68b9fdf0c66e26814d66a5dd6a521658a2f86a80"
+        );
+    }
+
+    #[test]
+    fn api_key_prefix_for_log_never_includes_full_key() {
+        let long = "abcdefghijklmnopqrstuvwxyz";
+        assert_eq!(api_key_prefix_for_log(Some(long)), "abcdefgh…");
+        assert!(!api_key_prefix_for_log(Some(long)).contains("ijkl"));
+    }
+
+    #[test]
+    fn api_key_prefix_for_log_short_key_unchanged() {
+        assert_eq!(api_key_prefix_for_log(Some("shorty")), "shorty");
+    }
+
+    #[test]
+    fn api_key_prefix_for_log_none_maps_to_none_literal() {
+        assert_eq!(api_key_prefix_for_log(None), "none");
+        assert_eq!(api_key_prefix_for_log(Some("   ")), "none");
+    }
+
+    #[test]
+    fn rate_limiter_allows_up_to_rpm_same_instant() {
+        let limiter = RateLimiter::new(2);
+        let now = Instant::now();
+        assert!(limiter.try_acquire("key-a", now).is_ok());
+        assert!(limiter.try_acquire("key-a", now).is_ok());
+        assert!(limiter.try_acquire("key-a", now).is_err());
+    }
+
+    #[test]
+    fn rate_limiter_tracks_keys_independently() {
+        let limiter = RateLimiter::new(1);
+        let now = Instant::now();
+        assert!(limiter.try_acquire("k1", now).is_ok());
+        assert!(limiter.try_acquire("k2", now).is_ok());
+    }
+
+    #[test]
+    fn rate_limiter_expires_rolling_window() {
+        let limiter = RateLimiter::new(1);
+        let t0 = Instant::now();
+        assert!(limiter.try_acquire("k", t0).is_ok());
+        let t1 = t0 + Duration::from_secs(61);
+        assert!(limiter.try_acquire("k", t1).is_ok());
+    }
+
+    #[tokio::test]
+    async fn rate_limit_returns_429_with_retry_after() {
+        let _guard = env_lock();
+        std::env::set_var(RATE_LIMIT_RPM_ENV_VAR, "2");
+
+        let app = test_app();
+
+        let make_req = || {
+            Request::builder()
+                .method(Method::POST)
+                .uri("/positions")
+                .header(API_KEY_HEADER, TEST_API_KEY)
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"julian_day":2451545.0,"bodies":["moon"]}"#))
+                .expect("request must build")
+        };
+
+        let response = app.clone().oneshot(make_req()).await.expect("response must succeed");
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let response = app.clone().oneshot(make_req()).await.expect("response must succeed");
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let response = app.oneshot(make_req()).await.expect("response must succeed");
+        assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+        let retry_after = response
+            .headers()
+            .get(RETRY_AFTER_HEADER)
+            .and_then(|value| value.to_str().ok())
+            .expect("retry-after header must be set");
+        let retry_secs: u64 = retry_after.parse().expect("retry-after must be numeric");
+        assert!((1..=60).contains(&retry_secs));
+        let body = to_bytes(response.into_body(), usize::MAX).await.expect("body must be readable");
+        let json: Value = serde_json::from_slice(&body).expect("body must be valid json");
+        assert_eq!(json, serde_json::json!({ "error": "rate_limit_exceeded" }));
+
+        std::env::remove_var(RATE_LIMIT_RPM_ENV_VAR);
+    }
+
+    #[test]
+    fn cloud_trace_context_builds_google_logging_fields() {
+        std::env::set_var("GOOGLE_CLOUD_PROJECT", "daanyam-prod");
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            CLOUD_TRACE_CONTEXT_HEADER,
+            HeaderValue::from_static("105445aa7843bc8bf206b120001000/123;o=1"),
+        );
+
+        let (trace, span_id, sampled) =
+            cloud_logging_trace_fields(&headers).expect("cloud trace header must parse");
+
+        assert_eq!(trace, "projects/daanyam-prod/traces/105445aa7843bc8bf206b120001000");
+        assert_eq!(span_id.as_deref(), Some("123"));
+        assert_eq!(sampled, Some(true));
+        std::env::remove_var("GOOGLE_CLOUD_PROJECT");
     }
 
     #[tokio::test]
     async fn positions_endpoint_returns_metadata() {
-        let app = app_router(demo_state());
+        let app = test_app();
         let response = app
             .oneshot(
                 Request::builder()
                     .method(Method::POST)
                     .uri("/positions")
+                    .header(API_KEY_HEADER, TEST_API_KEY)
                     .header("content-type", "application/json")
                     .body(Body::from(r#"{"julian_day":2451545.0,"bodies":["moon"]}"#))
                     .expect("request must build"),
@@ -1395,12 +2055,13 @@ mod tests {
 
     #[tokio::test]
     async fn sidereal_positions_endpoint_returns_sidereal_payload() {
-        let app = app_router(demo_state());
+        let app = test_app();
         let response = app
             .oneshot(
                 Request::builder()
                     .method(Method::POST)
                     .uri("/positions/sidereal")
+                    .header(API_KEY_HEADER, TEST_API_KEY)
                     .header("content-type", "application/json")
                     .body(Body::from(
                         r#"{"datetime":{"kind":"utc","utc":"2000-01-01T12:00:00Z"},"geo":{"latitude_deg":12.97,"longitude_deg":77.59,"elevation_m":920.0},"ayanamsa":"lahiri","bodies":["moon"],"gravitational_deflection":false}"#,
@@ -1427,12 +2088,13 @@ mod tests {
 
     #[tokio::test]
     async fn sidereal_positions_rejects_unsupported_ayanamsa() {
-        let app = app_router(demo_state());
+        let app = test_app();
         let response = app
             .oneshot(
                 Request::builder()
                     .method(Method::POST)
                     .uri("/positions/sidereal")
+                    .header(API_KEY_HEADER, TEST_API_KEY)
                     .header("content-type", "application/json")
                     .body(Body::from(
                         r#"{"datetime":{"kind":"utc","utc":"2000-01-01T12:00:00Z"},"geo":{"latitude_deg":12.97,"longitude_deg":77.59,"elevation_m":920.0},"ayanamsa":"raman","bodies":["moon"]}"#,
@@ -1447,12 +2109,13 @@ mod tests {
 
     #[tokio::test]
     async fn sidereal_chart_endpoint_returns_parashari_payload() {
-        let app = app_router(demo_state());
+        let app = test_app();
         let response = app
             .oneshot(
                 Request::builder()
                     .method(Method::POST)
                     .uri("/chart/sidereal")
+                    .header(API_KEY_HEADER, TEST_API_KEY)
                     .header("content-type", "application/json")
                     .body(Body::from(
                         r#"{"datetime":{"kind":"utc","utc":"2000-01-01T12:00:00Z"},"geo":{"latitude_deg":12.97,"longitude_deg":77.59,"elevation_m":920.0},"ayanamsa":"lahiri","gravitational_deflection":false}"#,
@@ -1495,6 +2158,8 @@ mod tests {
             0
         );
         assert!(json["data"]["grahas"][0]["sidereal_rashi"].is_string());
+        assert!(json["data"]["grahas"][0]["d3_rashi"].is_string());
+        assert!(json["data"]["grahas"][0]["d9_rashi"].is_string());
         assert!(json["data"]["grahas"][0]["whole_sign_house"].is_number());
         assert!(json["data"]["grahas"][0]["house_context"]["whole_sign_house"].is_number());
         assert_eq!(json["data"]["grahas"][0]["longitude_speed_deg_per_day"], 0.0);
@@ -1512,12 +2177,13 @@ mod tests {
 
     #[tokio::test]
     async fn sidereal_chart_compact_mode_omits_heavy_fields() {
-        let app = app_router(demo_state());
+        let app = test_app();
         let response = app
             .oneshot(
                 Request::builder()
                     .method(Method::POST)
                     .uri("/chart/sidereal")
+                    .header(API_KEY_HEADER, TEST_API_KEY)
                     .header("content-type", "application/json")
                     .body(Body::from(
                         r#"{"datetime":{"kind":"utc","utc":"2000-01-01T12:00:00Z"},"geo":{"latitude_deg":12.97,"longitude_deg":77.59,"elevation_m":920.0},"ayanamsa":"lahiri","compact":true}"#,
@@ -1535,18 +2201,21 @@ mod tests {
         assert!(json["data"]["summary"]["houses"].is_array());
         assert!(json["data"]["houses"].is_null());
         assert!(json["data"]["dasha"].is_null());
+        assert!(json["data"]["grahas"][0]["d3_rashi"].is_string());
+        assert!(json["data"]["grahas"][0]["d9_rashi"].is_string());
         assert!(json["data"]["grahas"][0]["computation_meta"].is_null());
         assert!(json["data"]["grahas"][0]["moon_division"].is_null());
     }
 
     #[tokio::test]
     async fn sidereal_chart_sidereal_only_projection_omits_tropical_fields() {
-        let app = app_router(demo_state());
+        let app = test_app();
         let response = app
             .oneshot(
                 Request::builder()
                     .method(Method::POST)
                     .uri("/chart/sidereal")
+                    .header(API_KEY_HEADER, TEST_API_KEY)
                     .header("content-type", "application/json")
                     .body(Body::from(
                         r#"{"datetime":{"kind":"utc","utc":"2000-01-01T12:00:00Z"},"geo":{"latitude_deg":12.97,"longitude_deg":77.59,"elevation_m":920.0},"ayanamsa":"lahiri","compact":true,"projection":"sidereal_only"}"#,
@@ -1563,17 +2232,20 @@ mod tests {
         assert!(json["data"]["grahas"][0]["sidereal_longitude_deg"].is_number());
         assert!(json["data"]["grahas"][0]["tropical_longitude_deg"].is_null());
         assert!(json["data"]["grahas"][0]["tropical_latitude_deg"].is_null());
+        assert!(json["data"]["grahas"][0]["d3_rashi"].is_string());
+        assert!(json["data"]["grahas"][0]["d9_rashi"].is_string());
         assert!(json["data"]["summary"]["houses"].is_array());
     }
 
     #[tokio::test]
     async fn sidereal_positions_compact_mode_omits_heavy_fields() {
-        let app = app_router(demo_state());
+        let app = test_app();
         let response = app
             .oneshot(
                 Request::builder()
                     .method(Method::POST)
                     .uri("/positions/sidereal")
+                    .header(API_KEY_HEADER, TEST_API_KEY)
                     .header("content-type", "application/json")
                     .body(Body::from(
                         r#"{"datetime":{"kind":"utc","utc":"2000-01-01T12:00:00Z"},"geo":{"latitude_deg":12.97,"longitude_deg":77.59,"elevation_m":920.0},"ayanamsa":"lahiri","bodies":["moon"],"compact":true}"#,
@@ -1595,12 +2267,13 @@ mod tests {
 
     #[tokio::test]
     async fn sidereal_positions_sidereal_only_projection_omits_tropical_fields() {
-        let app = app_router(demo_state());
+        let app = test_app();
         let response = app
             .oneshot(
                 Request::builder()
                     .method(Method::POST)
                     .uri("/positions/sidereal")
+                    .header(API_KEY_HEADER, TEST_API_KEY)
                     .header("content-type", "application/json")
                     .body(Body::from(
                         r#"{"datetime":{"kind":"utc","utc":"2000-01-01T12:00:00Z"},"geo":{"latitude_deg":12.97,"longitude_deg":77.59,"elevation_m":920.0},"ayanamsa":"lahiri","bodies":["moon"],"compact":true,"projection":"sidereal_only"}"#,
@@ -1621,7 +2294,7 @@ mod tests {
 
     #[tokio::test]
     async fn openapi_json_route_exposes_current_routes() {
-        let app = app_router(demo_state());
+        let app = test_app();
         let response = app
             .oneshot(
                 Request::builder()
@@ -1638,6 +2311,14 @@ mod tests {
         let json: Value = serde_json::from_slice(&body).expect("body must be valid json");
 
         assert_eq!(json["openapi"], "3.1.0");
+        assert_eq!(json["components"]["securitySchemes"]["ApiKeyAuth"]["type"], "apiKey");
+        assert_eq!(json["components"]["securitySchemes"]["ApiKeyAuth"]["in"], "header");
+        assert_eq!(json["components"]["securitySchemes"]["ApiKeyAuth"]["name"], "x-api-key");
+        assert_eq!(json["components"]["securitySchemes"]["BearerAuth"]["type"], "http");
+        assert_eq!(json["components"]["securitySchemes"]["BearerAuth"]["scheme"], "bearer");
+        assert!(json["paths"]["/positions"]["post"]["security"].is_array());
+        assert!(json["paths"]["/positions/sidereal"]["post"]["security"].is_array());
+        assert!(json["paths"]["/chart/sidereal"]["post"]["security"].is_array());
         assert!(json["paths"]["/chart/sidereal"]["post"].is_object());
         assert!(json["paths"]["/positions"]["post"].is_object());
         assert!(json["paths"]["/positions/sidereal"]["post"].is_object());
@@ -1686,13 +2367,127 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn docs_route_serves_redoc_html_without_api_key() {
+        let app = test_app();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/docs")
+                    .body(Body::empty())
+                    .expect("request must build"),
+            )
+            .await
+            .expect("response must succeed");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let content_type = response
+            .headers()
+            .get(axum::http::header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok());
+        assert!(content_type.is_some_and(|ct| ct.starts_with("text/html")));
+
+        let body = to_bytes(response.into_body(), usize::MAX).await.expect("body must be readable");
+        let html = String::from_utf8(body.to_vec()).expect("docs body must be utf-8");
+        assert!(html.contains("spec-url=\"/openapi.json\""));
+        assert!(
+            html.contains(REDOC_STANDALONE_JS),
+            "expected pinned Redoc script URL in HTML",
+        );
+    }
+
+    #[tokio::test]
+    async fn protected_route_rejects_missing_api_key() {
+        let app = test_app();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/positions")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"julian_day":2451545.0,"bodies":["moon"]}"#))
+                    .expect("request must build"),
+            )
+            .await
+            .expect("response must succeed");
+
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        let body = to_bytes(response.into_body(), usize::MAX).await.expect("body must be readable");
+        let json: Value = serde_json::from_slice(&body).expect("body must be valid json");
+        assert_eq!(json, serde_json::json!({ "error": "missing_api_key" }));
+    }
+
+    #[tokio::test]
+    async fn protected_route_rejects_invalid_api_key() {
+        let app = test_app();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/positions")
+                    .header(API_KEY_HEADER, "wrong-key")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"julian_day":2451545.0,"bodies":["moon"]}"#))
+                    .expect("request must build"),
+            )
+            .await
+            .expect("response must succeed");
+
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        let body = to_bytes(response.into_body(), usize::MAX).await.expect("body must be readable");
+        let json: Value = serde_json::from_slice(&body).expect("body must be valid json");
+        assert_eq!(json, serde_json::json!({ "error": "invalid_api_key" }));
+    }
+
+    #[tokio::test]
+    async fn protected_route_accepts_valid_bearer_token() {
+        let app = test_app();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/positions")
+                    .header(AUTHORIZATION_HEADER, format!("Bearer {TEST_API_KEY}"))
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"julian_day":2451545.0,"bodies":["moon"]}"#))
+                    .expect("request must build"),
+            )
+            .await
+            .expect("response must succeed");
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[test]
+    fn api_auth_config_parses_trimmed_csv_keys() {
+        let auth = ApiAuthConfig::from_csv(Some(" first-key,second-key ,, third-key "));
+
+        assert!(auth.is_valid_key("first-key"));
+        assert!(auth.is_valid_key("second-key"));
+        assert!(auth.is_valid_key("third-key"));
+        assert!(!auth.is_valid_key(""));
+    }
+
+    #[test]
+    fn app_router_reads_valid_api_keys_from_env() {
+        let _guard = env_lock();
+        std::env::set_var(VALID_API_KEYS_ENV_VAR, "env-key");
+
+        let auth = ApiAuthConfig::from_env();
+
+        assert!(auth.is_valid_key("env-key"));
+        std::env::remove_var(VALID_API_KEYS_ENV_VAR);
+    }
+
+    #[tokio::test]
     async fn dasha_endpoint_returns_deterministic_payload() {
-        let app = app_router(demo_state());
+        let app = test_app();
         let response = app
             .oneshot(
                 Request::builder()
                     .method(Method::POST)
                     .uri("/dasha")
+                    .header(API_KEY_HEADER, TEST_API_KEY)
                     .header("content-type", "application/json")
                     .body(Body::from(
                         r#"{"moon_sidereal_longitude_deg":15.0,"birth_time_utc_rfc3339":"2024-01-01T00:00:00Z"}"#,

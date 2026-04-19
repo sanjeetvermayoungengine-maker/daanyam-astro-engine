@@ -1,0 +1,35 @@
+{
+  "displayName": "__POLICY_DISPLAY_NAME__",
+  "documentation": {
+    "content": "Cloud Run is returning 5xx responses for `__SERVICE_NAME__`. Review the latest request logs, revision rollout, and recent deploy changes.",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "enabled": true,
+  "notificationChannels": __NOTIFICATION_CHANNELS__,
+  "alertStrategy": {
+    "autoClose": "1800s"
+  },
+  "conditions": [
+    {
+      "displayName": "__SERVICE_NAME__ 5xx count above threshold",
+      "conditionThreshold": {
+        "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"__SERVICE_NAME__\" AND resource.labels.location=\"__REGION__\" AND metric.type=\"run.googleapis.com/request_count\" AND metric.label.\"response_code_class\"=\"5xx\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_SUM",
+            "crossSeriesReducer": "REDUCE_SUM",
+            "groupByFields": []
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": __ERROR_COUNT_THRESHOLD__,
+        "duration": "0s",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ]
+}

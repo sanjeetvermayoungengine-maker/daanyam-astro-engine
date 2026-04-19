@@ -56,6 +56,8 @@
         {
           "body": "sun",
           "sidereal_rashi": "dhanu",
+          "d3_rashi": "mesha",
+          "d9_rashi": "simha",
           "whole_sign_house": 10,
           "sign_lord": "jupiter",
           "house_context": {
@@ -78,6 +80,8 @@
         "sidereal_longitude_deg": 256.1364127696777,
         "longitude_speed_deg_per_day": 0.0,
         "sidereal_rashi": "dhanu",
+        "d3_rashi": "mesha",
+        "d9_rashi": "simha",
         "whole_sign_house": 10,
         "retrograde": false
       },
@@ -86,6 +90,8 @@
         "sidereal_longitude_deg": 99.58641276967772,
         "longitude_speed_deg_per_day": 0.0,
         "sidereal_rashi": "karka",
+        "d3_rashi": "karka",
+        "d9_rashi": "kanya",
         "whole_sign_house": 5,
         "retrograde": false
       }

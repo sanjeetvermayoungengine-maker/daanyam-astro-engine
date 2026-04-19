@@ -1,0 +1,35 @@
+{
+  "displayName": "__POLICY_DISPLAY_NAME__",
+  "documentation": {
+    "content": "Cloud Run p95 latency for `__SERVICE_NAME__` is above the starter threshold. Check current revision health, request latency distribution, and recent production traffic changes.",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "enabled": true,
+  "notificationChannels": __NOTIFICATION_CHANNELS__,
+  "alertStrategy": {
+    "autoClose": "1800s"
+  },
+  "conditions": [
+    {
+      "displayName": "__SERVICE_NAME__ p95 latency above threshold",
+      "conditionThreshold": {
+        "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"__SERVICE_NAME__\" AND resource.labels.location=\"__REGION__\" AND metric.type=\"run.googleapis.com/request_latencies\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "600s",
+            "perSeriesAligner": "ALIGN_PERCENTILE_95",
+            "crossSeriesReducer": "REDUCE_MAX",
+            "groupByFields": []
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": __LATENCY_THRESHOLD_MS__,
+        "duration": "0s",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ]
+}

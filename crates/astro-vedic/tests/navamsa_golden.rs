@@ -13,7 +13,7 @@ struct GoldenVector {
 }
 
 #[test]
-fn navamsa_reference_vectors_match_expected_rashis() {
+fn golden_navamsa_reference_vectors_match_expected_rashis() {
     let raw = std::fs::read_to_string("../../tests/golden/navamsa_reference_points.json")
         .expect("golden fixture must exist");
     let fixture: GoldenFixture = serde_json::from_str(&raw).expect("golden fixture must parse");

@@ -2,7 +2,10 @@
 
 use std::{
     collections::{HashMap, HashSet, VecDeque},
+    fmt::Write as _,
+    sync::atomic::{AtomicU64, Ordering},
     sync::{Arc, Mutex},
+    sync::OnceLock,
     time::{Duration, Instant},
 };
 
@@ -33,7 +36,7 @@ use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-pub const ENGINE_SEMANTIC_VERSION: &str = "0.17.0";
+pub const ENGINE_SEMANTIC_VERSION: &str = "0.17.2";
 pub const NODE_POLICY_ID: &str = "true_node_mean_ecliptic_of_date";
 pub const CHART_SIDEREAL_SCHEMA_VERSION: &str = "chart_sidereal_v1";
 const RETROGRADE_DELTA_DAYS: f64 = 0.5;
@@ -57,6 +60,8 @@ pub struct ApiState {
     backend: Arc<dyn EphemerisBackend>,
     config: EngineConfig,
     version: String,
+    kernel_hash: String,
+    kernel_load_seconds: f64,
 }
 
 impl ApiState {
@@ -65,7 +70,19 @@ impl ApiState {
         config: EngineConfig,
         version: impl Into<String>,
     ) -> Self {
-        Self { backend, config, version: version.into() }
+        Self {
+            backend,
+            config,
+            version: version.into(),
+            kernel_hash: "unknown".to_owned(),
+            kernel_load_seconds: 0.0,
+        }
+    }
+
+    pub fn with_runtime(mut self, kernel_hash: impl Into<String>, kernel_load_seconds: f64) -> Self {
+        self.kernel_hash = kernel_hash.into();
+        self.kernel_load_seconds = kernel_load_seconds;
+        self
     }
 }
 
@@ -283,6 +300,7 @@ where
 
 fn build_app_router(state: ApiState, auth: ApiAuthConfig) -> Router {
     let rate_limiter = RateLimiter::from_env();
+    let observability_state = state.clone();
     Router::new()
         .route("/health", get(health))
         .route("/positions", post(positions))
@@ -290,6 +308,7 @@ fn build_app_router(state: ApiState, auth: ApiAuthConfig) -> Router {
         .route("/chart/sidereal", post(sidereal_chart))
         .route("/openapi.json", get(openapi_json))
         .route("/docs", get(redoc_docs))
+        .route("/metrics", get(metrics))
         .route("/dasha", post(dasha))
         .with_state(state)
         .layer(middleware::from_fn({
@@ -303,7 +322,10 @@ fn build_app_router(state: ApiState, auth: ApiAuthConfig) -> Router {
             let auth = auth.clone();
             async move { auth_middleware(request, next, auth).await }
         }))
-        .layer(middleware::from_fn(observability_middleware))
+        .layer(middleware::from_fn_with_state(
+            observability_state,
+            observability_middleware,
+        ))
 }
 
 #[derive(Clone, Debug)]
@@ -476,6 +498,7 @@ fn is_public_route(method: &Method, path: &str) -> bool {
         (&Method::GET, "/health")
             | (&Method::GET, "/openapi.json")
             | (&Method::GET, "/docs")
+            | (&Method::GET, "/metrics")
     )
 }
 
@@ -501,7 +524,11 @@ fn unauthorized_response(error: &'static str) -> Response {
     (StatusCode::UNAUTHORIZED, Json(ErrorPayload { error: error.to_owned() })).into_response()
 }
 
-async fn observability_middleware(mut request: Request, next: Next) -> Response {
+async fn observability_middleware(
+    State(state): State<ApiState>,
+    mut request: Request,
+    next: Next,
+) -> Response {
     let started_at = Instant::now();
     let method = request.method().clone();
     let path = request.uri().path().to_owned();
@@ -526,7 +553,10 @@ async fn observability_middleware(mut request: Request, next: Next) -> Response 
         body_hash: body_hash.as_deref(),
         api_key_prefix: &api_key_prefix,
         headers: &headers,
+        engine_version: &state.version,
+        kernel_hash: &state.kernel_hash,
     });
+    observe_request_metric(&path, response.status().as_u16(), started_at.elapsed().as_millis() as u64);
 
     response
 }
@@ -541,6 +571,8 @@ struct RequestLogEntry<'a> {
     body_hash: Option<&'a str>,
     api_key_prefix: &'a str,
     headers: &'a HeaderMap,
+    engine_version: &'a str,
+    kernel_hash: &'a str,
 }
 
 fn emit_request_log(entry: RequestLogEntry<'_>) {
@@ -551,6 +583,8 @@ fn emit_request_log(entry: RequestLogEntry<'_>) {
         "api_key_prefix": entry.api_key_prefix,
         "method": entry.method.as_str(),
         "path": entry.path,
+        "engine_version": entry.engine_version,
+        "kernel_hash": entry.kernel_hash,
         "status": entry.status,
         "latency_ms": entry.latency_ms,
     });
@@ -560,7 +594,7 @@ fn emit_request_log(entry: RequestLogEntry<'_>) {
     }
 
     if let Some(body_hash) = entry.body_hash {
-        payload["request_body_hash"] = json!(body_hash);
+        payload["body_hash"] = json!(body_hash);
     }
 
     if let Some(user_agent) = header_value(entry.headers, axum::http::header::USER_AGENT.as_str()) {
@@ -586,6 +620,108 @@ fn emit_request_log(entry: RequestLogEntry<'_>) {
     }
 
     eprintln!("{payload}");
+}
+
+#[derive(Default)]
+struct MetricsRegistry {
+    requests_total: Mutex<HashMap<(String, u16), u64>>,
+    latency_buckets: Mutex<[u64; 7]>,
+}
+
+fn metrics_registry() -> &'static MetricsRegistry {
+    static REGISTRY: OnceLock<MetricsRegistry> = OnceLock::new();
+    REGISTRY.get_or_init(MetricsRegistry::default)
+}
+
+fn panic_total_counter() -> &'static AtomicU64 {
+    static PANIC_TOTAL: OnceLock<AtomicU64> = OnceLock::new();
+    PANIC_TOTAL.get_or_init(|| AtomicU64::new(0))
+}
+
+pub fn install_panic_counter_hook() {
+    static HOOK_INSTALLED: OnceLock<()> = OnceLock::new();
+    HOOK_INSTALLED.get_or_init(|| {
+        let prev = std::panic::take_hook();
+        std::panic::set_hook(Box::new(move |panic_info| {
+            panic_total_counter().fetch_add(1, Ordering::Relaxed);
+            prev(panic_info);
+        }));
+    });
+}
+
+fn observe_request_metric(path: &str, status: u16, latency_ms: u64) {
+    let registry = metrics_registry();
+    if let Ok(mut map) = registry.requests_total.lock() {
+        *map.entry((path.to_owned(), status)).or_insert(0) += 1;
+    }
+
+    let bucket_idx = match latency_ms {
+        0..=10 => 0,
+        11..=25 => 1,
+        26..=50 => 2,
+        51..=100 => 3,
+        101..=250 => 4,
+        251..=1000 => 5,
+        _ => 6,
+    };
+    if let Ok(mut buckets) = registry.latency_buckets.lock() {
+        buckets[bucket_idx] += 1;
+    }
+}
+
+async fn metrics(State(state): State<ApiState>, headers: HeaderMap) -> Result<Response, StatusCode> {
+    let expected = std::env::var("METRICS_TOKEN").unwrap_or_default();
+    if expected.trim().is_empty() {
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
+    }
+    if bearer_token(&headers) != Some(expected.as_str()) {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    let registry = metrics_registry();
+    let mut body = String::new();
+
+    if let Ok(map) = registry.requests_total.lock() {
+        for ((path, status), count) in map.iter() {
+            let _ = writeln!(
+                body,
+                "requests_total{{path=\"{}\",status=\"{}\"}} {}",
+                path, status, count
+            );
+        }
+    }
+
+    let buckets_ms = [10_u64, 25, 50, 100, 250, 1000];
+    let mut cumulative = 0_u64;
+    if let Ok(buckets) = registry.latency_buckets.lock() {
+        for (i, count) in buckets.iter().enumerate() {
+            cumulative += *count;
+            if i < buckets_ms.len() {
+                let _ = writeln!(
+                    body,
+                    "latency_ms_histogram_bucket{{le=\"{}\"}} {}",
+                    buckets_ms[i], cumulative
+                );
+            } else {
+                let _ = writeln!(body, "latency_ms_histogram_bucket{{le=\"+Inf\"}} {}", cumulative);
+            }
+        }
+        let _ = writeln!(body, "latency_ms_histogram_count {}", cumulative);
+    }
+
+    let _ = writeln!(body, "kernel_load_seconds {}", state.kernel_load_seconds);
+    let _ = writeln!(
+        body,
+        "panic_total {}",
+        panic_total_counter().load(Ordering::Relaxed)
+    );
+
+    Ok((
+        StatusCode::OK,
+        [(axum::http::header::CONTENT_TYPE, "text/plain; version=0.0.4")],
+        body,
+    )
+        .into_response())
 }
 
 fn request_log_severity(status: u16) -> &'static str {
@@ -1806,12 +1942,16 @@ pub fn demo_state() -> ApiState {
     }
 
     let backend = InMemoryBackend::new(positions, 24.0);
-    ApiState::new(Arc::new(backend), EngineConfig::default(), env!("CARGO_PKG_VERSION"))
+    ApiState::new(Arc::new(backend), EngineConfig::default(), ENGINE_SEMANTIC_VERSION)
 }
 
 pub fn de440_state_from_env() -> Result<ApiState, astro_core::BackendError> {
     let backend = De440Backend::from_env()?;
-    Ok(ApiState::new(Arc::new(backend), EngineConfig::default(), env!("CARGO_PKG_VERSION")))
+    Ok(ApiState::new(
+        Arc::new(backend),
+        EngineConfig::default(),
+        ENGINE_SEMANTIC_VERSION,
+    ))
 }
 
 pub fn example_sidereal_division(longitude_deg: f64) -> SiderealDivision {

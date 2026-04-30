@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.17.2
+
+### Changed
+
+- Cloud Run `asia-south1` deployment is live at `https://astro-engine-6ucc3jlvga-el.a.run.app`.
+- Added structured observability logging and a token-protected `/metrics` endpoint.
+- Kernel-provenance assertions accept derived-from-DE440 values.
+- Hardened `cloudbuild.yaml` with explicit `gcloud` entrypoint and fail-loud service-account render check.
+- Rust toolchain pinned to `1.88`.
+
+## 0.17.1
+
+### Changed
+
+- Cloud Run `asia-south1` deployment target aligned for `astro-engine` runtime settings.
+- DE440 kernel loading configured for startup streaming from GCS (`gs://daanyam-astroengine-kernels/de440.bsp`) with cache in `/tmp`.
+- Test: kernel-provenance assertion now accepts derived-from-DE440 values for nodes.
+
 ## 0.17.0
 
 ### Changed

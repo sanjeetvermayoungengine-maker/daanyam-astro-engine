@@ -1,12 +1,15 @@
 use std::{env, net::SocketAddr};
 
-use astro_api::{app_router, demo_state, ApiState};
+use astro_api::{
+    app_router, demo_state, install_panic_counter_hook, ApiState, ENGINE_SEMANTIC_VERSION,
+};
 use astro_core::{
     kernel_resolver::{resolve_kernel_from_env, KernelResolution},
     time::julian_day,
     De440Backend,
 };
 use chrono::{TimeZone, Utc};
+use sha2::{Digest, Sha256};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum BackendMode {
@@ -31,6 +34,13 @@ impl BackendMode {
             Self::Demo => "demo",
         }
     }
+}
+
+fn backend_mode_env_value() -> Option<String> {
+    env::var("ASTRO_ENGINE_BACKEND")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .or_else(|| env::var("ASTRO_BACKEND").ok().filter(|value| !value.trim().is_empty()))
 }
 
 fn bind_addr_from_env_vars(host: Option<&str>, port: Option<&str>) -> Result<SocketAddr, String> {
@@ -77,7 +87,7 @@ fn coverage_window_confirmed(backend: &De440Backend) -> bool {
 }
 
 async fn app_state_from_env() -> Result<(ApiState, BackendMode, Option<KernelResolution>), String> {
-    let backend_mode = BackendMode::from_env(env::var("ASTRO_BACKEND").ok().as_deref())?;
+    let backend_mode = BackendMode::from_env(backend_mode_env_value().as_deref())?;
     ensure_demo_backend_allowed(backend_mode)?;
     match backend_mode {
         BackendMode::Demo => Ok((demo_state(), backend_mode, None)),
@@ -100,15 +110,29 @@ async fn app_state_from_env() -> Result<(ApiState, BackendMode, Option<KernelRes
             let state = ApiState::new(
                 std::sync::Arc::new(backend),
                 astro_core::EngineConfig::default(),
-                env!("CARGO_PKG_VERSION"),
-            );
+                ENGINE_SEMANTIC_VERSION,
+            )
+            .with_runtime(kernel_hash(&resolution.path.display().to_string()), resolution.elapsed.as_secs_f64());
             Ok((state, backend_mode, Some(resolution)))
         }
     }
 }
 
+fn kernel_hash(value: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(value.as_bytes());
+    let digest = hasher.finalize();
+    let mut out = String::with_capacity(digest.len() * 2);
+    for byte in digest {
+        use std::fmt::Write as _;
+        let _ = write!(&mut out, "{byte:02x}");
+    }
+    format!("sha256:{out}")
+}
+
 #[tokio::main]
 async fn main() {
+    install_panic_counter_hook();
     let (state, backend_mode, kernel_resolution) =
         app_state_from_env().await.expect("runtime backend initialization must succeed");
     if let Some(kernel_resolution) = kernel_resolution {

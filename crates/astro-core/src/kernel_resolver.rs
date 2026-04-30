@@ -16,6 +16,7 @@ use tokio::{
 
 const ASTRO_EPHE_PATH: &str = "ASTRO_EPHE_PATH";
 const ASTRO_EPHE_GCS_URI: &str = "ASTRO_EPHE_GCS_URI";
+const KERNEL_GCS_URI: &str = "KERNEL_GCS_URI";
 const ASTRO_EPHE_CACHE_DIR: &str = "ASTRO_EPHE_CACHE_DIR";
 const ASTRO_GCS_BEARER_TOKEN: &str = "ASTRO_GCS_BEARER_TOKEN";
 const ASTRO_GCS_DOWNLOAD_BASE_URL: &str = "ASTRO_GCS_DOWNLOAD_BASE_URL";
@@ -72,6 +73,7 @@ pub async fn resolve_kernel_from_env() -> Result<KernelResolution, KernelResolve
         .ok()
         .filter(|value| !value.trim().is_empty())
         .or_else(|| env::var(ASTRO_EPHE_GCS_URI).ok().filter(|value| !value.trim().is_empty()))
+        .or_else(|| env::var(KERNEL_GCS_URI).ok().filter(|value| !value.trim().is_empty()))
         .ok_or(KernelResolverError::MissingSource)?;
 
     if source.starts_with("gs://") {

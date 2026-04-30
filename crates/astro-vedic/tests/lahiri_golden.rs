@@ -22,7 +22,7 @@ struct GoldenVector {
 }
 
 #[test]
-fn lahiri_manual_reference_vectors_match() {
+fn golden_lahiri_manual_reference_vectors_match() {
     let raw = std::fs::read_to_string("../../tests/golden/lahiri_moon_nakshatra.json")
         .expect("golden fixture must exist");
     let fixture: GoldenFixture = serde_json::from_str(&raw).expect("golden fixture must parse");

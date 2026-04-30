@@ -4,12 +4,17 @@ use axum::{
     http::{Method, Request, StatusCode},
 };
 use serde_json::Value;
+use std::collections::BTreeSet;
 use tower::util::ServiceExt;
 
 #[path = "../../../tests/support/de440_kernel.rs"]
 mod de440_kernel;
 
 const TEST_API_KEY: &str = "test-api-key";
+
+fn kernel_traces_to_de440(kernel: &str) -> bool {
+    kernel.starts_with("de440_") || (kernel.starts_with("derived_") && kernel.contains("_de440_"))
+}
 
 fn authenticated_request(method: Method, uri: &str) -> axum::http::request::Builder {
     Request::builder().method(method).uri(uri).header("x-api-key", TEST_API_KEY)
@@ -731,9 +736,43 @@ async fn sidereal_chart_with_de440_kernel_reports_real_backend_metadata() {
     assert!(!grahas.is_empty());
     for graha in grahas {
         let kernel = graha["computation_meta"]["kernel"].as_str().expect("kernel must exist");
-        assert!(kernel.starts_with("de440_"), "expected DE440 kernel metadata, got {kernel}");
+        assert!(
+            kernel_traces_to_de440(kernel),
+            "expected provenance to trace to DE440, got {kernel}"
+        );
         assert_ne!(kernel, "in_memory");
+        assert!(!kernel.is_empty());
     }
+
+    let mut direct_de440_bodies = BTreeSet::new();
+    let mut derived_de440_bodies = BTreeSet::new();
+    for graha in grahas {
+        let body = graha["body"].as_str().expect("graha body must exist");
+        let kernel = graha["computation_meta"]["kernel"].as_str().expect("kernel must exist");
+        if kernel.starts_with("de440_") {
+            direct_de440_bodies.insert(body.to_owned());
+        } else if kernel.starts_with("derived_") && kernel.contains("_de440_") {
+            derived_de440_bodies.insert(body.to_owned());
+        }
+    }
+    assert_eq!(direct_de440_bodies.len(), 7);
+    assert_eq!(derived_de440_bodies.len(), 2);
+    assert_eq!(
+        direct_de440_bodies,
+        BTreeSet::from([
+            "jupiter".to_owned(),
+            "mars".to_owned(),
+            "mercury".to_owned(),
+            "moon".to_owned(),
+            "saturn".to_owned(),
+            "sun".to_owned(),
+            "venus".to_owned(),
+        ])
+    );
+    assert_eq!(
+        derived_de440_bodies,
+        BTreeSet::from(["ketu".to_owned(), "rahu".to_owned()])
+    );
 }
 
 #[tokio::test(flavor = "current_thread")]

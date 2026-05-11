@@ -15,8 +15,9 @@ use astro_core::{
 use astro_vedic::{
     drekkana_sign, lagna_position_from_sidereal_longitude, moon_sidereal_division_from_tropical,
     navamsa_sign, sidereal_division, sidereal_longitude_deg, vimshottari_dasha,
-    vimshottari_dasha_at, whole_sign_houses_from_sidereal_ascendant, LagnaPosition, Nakshatra,
-    Rashi, SiderealDivision, VimshottariDasha, WholeSignHouse, LAHIRI_ALGO_ID,
+    vimshottari_dasha_at, vimshottari_timeline, whole_sign_houses_from_sidereal_ascendant,
+    LagnaPosition, Nakshatra, Rashi, SiderealDivision, VimshottariDasha, VimshottariTimeline,
+    WholeSignHouse, LAHIRI_ALGO_ID,
 };
 use axum::{
     body::{to_bytes, Body},
@@ -36,6 +37,7 @@ use uuid::Uuid;
 pub const ENGINE_SEMANTIC_VERSION: &str = "0.17.0";
 pub const NODE_POLICY_ID: &str = "true_node_mean_ecliptic_of_date";
 pub const CHART_SIDEREAL_SCHEMA_VERSION: &str = "chart_sidereal_v1";
+pub const DASHA_SCHEMA_VERSION: &str = "dasha_v2";
 const RETROGRADE_DELTA_DAYS: f64 = 0.5;
 const REQUEST_ID_HEADER: &str = "x-request-id";
 const CORRELATION_ID_HEADER: &str = "x-correlation-id";
@@ -57,6 +59,9 @@ pub struct ApiState {
     backend: Arc<dyn EphemerisBackend>,
     config: EngineConfig,
     version: String,
+    /// Stable digest for the loaded ephemeris kernel when known (hex sha256 over source + path).
+    kernel_hash: String,
+    kernel_load_seconds: f64,
 }
 
 impl ApiState {
@@ -65,7 +70,23 @@ impl ApiState {
         config: EngineConfig,
         version: impl Into<String>,
     ) -> Self {
-        Self { backend, config, version: version.into() }
+        Self {
+            backend,
+            config,
+            version: version.into(),
+            kernel_hash: String::new(),
+            kernel_load_seconds: 0.0,
+        }
+    }
+
+    pub fn with_kernel_provenance(
+        mut self,
+        kernel_hash: impl Into<String>,
+        kernel_load_seconds: f64,
+    ) -> Self {
+        self.kernel_hash = kernel_hash.into();
+        self.kernel_load_seconds = kernel_load_seconds;
+        self
     }
 }
 
@@ -73,6 +94,18 @@ impl ApiState {
 pub struct HealthResponse {
     pub status: &'static str,
     pub version: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub struct ProvenanceResponse {
+    pub engine_semantic_version: String,
+    pub version: String,
+    pub engine_mode: EngineMode,
+    pub ayanamsa_used: AyanamsaModel,
+    pub house_system: HouseSystem,
+    pub gravitational_deflection: bool,
+    pub kernel_hash: String,
+    pub kernel_load_seconds: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -255,11 +288,32 @@ pub struct FastestBodySummary {
 pub struct DashaRequest {
     pub moon_sidereal_longitude_deg: f64,
     pub birth_time_utc_rfc3339: String,
+    /// Optional RFC-3339 instant for the "current period" snapshot.
+    /// Defaults to UTC now when omitted (preserves dasha_v1 behaviour).
+    #[serde(default)]
+    pub as_of_utc_rfc3339: Option<String>,
+    /// When true, include the full Maha + Antar timeline in the response.
+    /// Defaults to false to preserve dasha_v1 payload shape.
+    #[serde(default)]
+    pub include_timeline: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DashaPayload {
+    /// Original dasha_v1 field — current Maha+Antar+Pratyantar snapshot.
+    /// Retained for backward compatibility; identical to `current`.
     pub dasha: VimshottariDasha,
+    /// Schema marker — "dasha_v1" when timeline omitted, "dasha_v2" when present.
+    #[serde(default)]
+    pub schema_version: String,
+    /// Current Maha+Antar+Pratyantar snapshot. Same content as `dasha`; named
+    /// for clarity in dasha_v2 clients that prefer not to overload `dasha`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current: Option<VimshottariDasha>,
+    /// Full Vimshottari timeline (9 Mahas, 81 Antars, 9 Pratyantars within the
+    /// current Antar). Present only when `include_timeline: true` in the request.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeline: Option<VimshottariTimeline>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -285,6 +339,7 @@ fn build_app_router(state: ApiState, auth: ApiAuthConfig) -> Router {
     let rate_limiter = RateLimiter::from_env();
     Router::new()
         .route("/health", get(health))
+        .route("/provenance", get(provenance))
         .route("/positions", post(positions))
         .route("/positions/sidereal", post(sidereal_positions))
         .route("/chart/sidereal", post(sidereal_chart))
@@ -474,6 +529,7 @@ fn is_public_route(method: &Method, path: &str) -> bool {
     matches!(
         (method, path),
         (&Method::GET, "/health")
+            | (&Method::GET, "/provenance")
             | (&Method::GET, "/openapi.json")
             | (&Method::GET, "/docs")
     )
@@ -687,6 +743,19 @@ async fn health(State(state): State<ApiState>) -> Json<HealthResponse> {
     Json(HealthResponse { status: "ok", version: state.version })
 }
 
+async fn provenance(State(state): State<ApiState>) -> Json<ProvenanceResponse> {
+    Json(ProvenanceResponse {
+        engine_semantic_version: ENGINE_SEMANTIC_VERSION.to_owned(),
+        version: state.version.clone(),
+        engine_mode: state.config.mode,
+        ayanamsa_used: state.config.ayanamsa,
+        house_system: state.config.house_system,
+        gravitational_deflection: state.config.gravitational_deflection,
+        kernel_hash: state.kernel_hash.clone(),
+        kernel_load_seconds: state.kernel_load_seconds,
+    })
+}
+
 async fn openapi_json() -> Json<Value> {
     Json(openapi_spec())
 }
@@ -739,12 +808,46 @@ async fn dasha(
         .map_err(|err| bad_request(err.to_string()))?
         .with_timezone(&Utc);
 
-    Ok(Json(ComputationResult {
-        data: DashaPayload {
-            dasha: vimshottari_dasha(request.moon_sidereal_longitude_deg, birth_time),
-        },
-        metadata: metadata(&state),
-    }))
+    // as_of defaults to "now" when the caller does not supply it, mirroring
+    // the existing dasha_v1 contract (vimshottari_dasha == _at(birth, birth)).
+    let as_of = match request.as_of_utc_rfc3339.as_deref() {
+        Some(value) => chrono::DateTime::parse_from_rfc3339(value)
+            .map_err(|err| bad_request(err.to_string()))?
+            .with_timezone(&Utc),
+        None => Utc::now(),
+    };
+
+    let include_timeline = request.include_timeline.unwrap_or(false);
+
+    let payload = if include_timeline {
+        let (current, timeline) = vimshottari_timeline(
+            request.moon_sidereal_longitude_deg,
+            birth_time,
+            as_of,
+        );
+        DashaPayload {
+            dasha: current.clone(),
+            schema_version: DASHA_SCHEMA_VERSION.to_string(),
+            current: Some(current),
+            timeline: Some(timeline),
+        }
+    } else {
+        // dasha_v1 behaviour preserved: if no as_of was passed, evaluate at
+        // birth (matches vimshottari_dasha); otherwise use the as_of snapshot.
+        let snapshot = if request.as_of_utc_rfc3339.is_some() {
+            vimshottari_dasha_at(request.moon_sidereal_longitude_deg, birth_time, as_of)
+        } else {
+            vimshottari_dasha(request.moon_sidereal_longitude_deg, birth_time)
+        };
+        DashaPayload {
+            dasha: snapshot,
+            schema_version: "dasha_v1".to_string(),
+            current: None,
+            timeline: None,
+        }
+    };
+
+    Ok(Json(ComputationResult { data: payload, metadata: metadata(&state) }))
 }
 
 async fn sidereal_positions(
@@ -1187,6 +1290,21 @@ pub fn openapi_spec() -> Value {
             "version": ENGINE_SEMANTIC_VERSION
         },
         "paths": {
+            "/provenance": {
+                "get": {
+                    "summary": "Return engine runtime provenance metadata",
+                    "responses": {
+                        "200": {
+                            "description": "Provenance payload",
+                            "content": {
+                                "application/json": {
+                                    "schema": { "$ref": "#/components/schemas/ProvenanceResponse" }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
             "/positions": {
                 "post": {
                     "summary": "Compute tropical positions",
@@ -1298,6 +1416,29 @@ pub fn openapi_spec() -> Value {
                             "type": "boolean",
                             "description": "When true, omits position distance and computation metadata for lightweight clients."
                         }
+                    }
+                },
+                "ProvenanceResponse": {
+                    "type": "object",
+                    "required": [
+                        "engine_semantic_version",
+                        "version",
+                        "engine_mode",
+                        "ayanamsa_used",
+                        "house_system",
+                        "gravitational_deflection",
+                        "kernel_hash",
+                        "kernel_load_seconds"
+                    ],
+                    "properties": {
+                        "engine_semantic_version": { "type": "string" },
+                        "version": { "type": "string" },
+                        "engine_mode": { "type": "string" },
+                        "ayanamsa_used": { "type": "string" },
+                        "house_system": { "type": "string" },
+                        "gravitational_deflection": { "type": "boolean" },
+                        "kernel_hash": { "type": "string" },
+                        "kernel_load_seconds": { "type": "number" }
                     }
                 },
                 "SiderealPositionsRequest": {
@@ -1690,6 +1831,28 @@ pub fn openapi_spec() -> Value {
                         "antar": { "$ref": "#/components/schemas/DashaPeriod" },
                         "pratyantar": { "$ref": "#/components/schemas/DashaPeriod" }
                     }
+                },
+                "VimshottariTimeline": {
+                    "type": "object",
+                    "description": "Full Vimshottari timeline (dasha_v2). Returned when include_timeline=true on POST /dasha.",
+                    "properties": {
+                        "mahadashas": {
+                            "type": "array",
+                            "items": { "$ref": "#/components/schemas/DashaPeriod" },
+                            "description": "9 Mahadashas spanning the 120-yr cycle from birth_time."
+                        },
+                        "antardashas": {
+                            "type": "array",
+                            "items": { "$ref": "#/components/schemas/DashaPeriod" },
+                            "description": "81 Antardashas (9 per Maha) in chronological order."
+                        },
+                        "current_antar_pratyantars": {
+                            "type": "array",
+                            "items": { "$ref": "#/components/schemas/DashaPeriod" },
+                            "description": "9 Pratyantars within the currently-active Antar."
+                        }
+                    },
+                    "required": ["mahadashas", "antardashas", "current_antar_pratyantars"]
                 },
                 "DashaPeriod": {
                     "type": "object",
@@ -2322,6 +2485,7 @@ mod tests {
         assert!(json["paths"]["/chart/sidereal"]["post"].is_object());
         assert!(json["paths"]["/positions"]["post"].is_object());
         assert!(json["paths"]["/positions/sidereal"]["post"].is_object());
+        assert!(json["paths"]["/provenance"]["get"].is_object());
         assert!(json["components"]["schemas"]["SiderealChartPayload"]["properties"]["dasha"]
             .is_object());
         assert!(json["components"]["schemas"]["SiderealChartPayload"]["properties"]["summary"]
@@ -2394,6 +2558,28 @@ mod tests {
             html.contains(REDOC_STANDALONE_JS),
             "expected pinned Redoc script URL in HTML",
         );
+    }
+
+    #[tokio::test]
+    async fn provenance_route_is_public_and_returns_runtime_metadata() {
+        let app = test_app();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/provenance")
+                    .body(Body::empty())
+                    .expect("request must build"),
+            )
+            .await
+            .expect("response must succeed");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX).await.expect("body must be readable");
+        let json: Value = serde_json::from_slice(&body).expect("body must be valid json");
+        assert!(json["version"].is_string());
+        assert!(json["kernel_hash"].is_string());
+        assert!(json["kernel_load_seconds"].is_number());
     }
 
     #[tokio::test]
@@ -2498,5 +2684,69 @@ mod tests {
             .expect("response must succeed");
 
         assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn dasha_endpoint_omits_timeline_by_default() {
+        // Backward compatibility: a dasha_v1 caller (no include_timeline) gets
+        // the original payload shape; `timeline` is absent on the wire.
+        let app = test_app();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/dasha")
+                    .header(API_KEY_HEADER, TEST_API_KEY)
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        r#"{"moon_sidereal_longitude_deg":15.0,"birth_time_utc_rfc3339":"2024-01-01T00:00:00Z"}"#,
+                    ))
+                    .expect("request must build"),
+            )
+            .await
+            .expect("response must succeed");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX).await.expect("body must be readable");
+        let json: Value = serde_json::from_slice(&body).expect("body must be valid json");
+        assert!(json["data"]["dasha"].is_object());
+        assert_eq!(json["data"]["schema_version"], "dasha_v1");
+        assert!(json["data"].get("timeline").is_none() || json["data"]["timeline"].is_null());
+    }
+
+    #[tokio::test]
+    async fn dasha_endpoint_returns_timeline_when_requested() {
+        let app = test_app();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/dasha")
+                    .header(API_KEY_HEADER, TEST_API_KEY)
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        r#"{
+                            "moon_sidereal_longitude_deg": 99.586412769677720,
+                            "birth_time_utc_rfc3339": "2000-01-01T12:00:00Z",
+                            "as_of_utc_rfc3339": "2005-01-01T12:00:00Z",
+                            "include_timeline": true
+                        }"#,
+                    ))
+                    .expect("request must build"),
+            )
+            .await
+            .expect("response must succeed");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX).await.expect("body must be readable");
+        let json: Value = serde_json::from_slice(&body).expect("body must be valid json");
+        assert_eq!(json["data"]["schema_version"], "dasha_v2");
+        let timeline = &json["data"]["timeline"];
+        assert!(timeline.is_object());
+        assert_eq!(timeline["mahadashas"].as_array().unwrap().len(), 9);
+        assert_eq!(timeline["antardashas"].as_array().unwrap().len(), 81);
+        assert_eq!(timeline["current_antar_pratyantars"].as_array().unwrap().len(), 9);
+        // The "current" field must agree with the standalone "dasha" field.
+        assert_eq!(json["data"]["dasha"]["maha"]["lord"], json["data"]["current"]["maha"]["lord"]);
     }
 }

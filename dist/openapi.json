@@ -504,6 +504,45 @@
         },
         "type": "object"
       },
+      "ProvenanceResponse": {
+        "properties": {
+          "ayanamsa_used": {
+            "type": "string"
+          },
+          "engine_mode": {
+            "type": "string"
+          },
+          "engine_semantic_version": {
+            "type": "string"
+          },
+          "gravitational_deflection": {
+            "type": "boolean"
+          },
+          "house_system": {
+            "type": "string"
+          },
+          "kernel_hash": {
+            "type": "string"
+          },
+          "kernel_load_seconds": {
+            "type": "number"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "engine_semantic_version",
+          "version",
+          "engine_mode",
+          "ayanamsa_used",
+          "house_system",
+          "gravitational_deflection",
+          "kernel_hash",
+          "kernel_load_seconds"
+        ],
+        "type": "object"
+      },
       "ResultMetadata": {
         "properties": {
           "ayanamsa_used": {
@@ -801,6 +840,38 @@
         },
         "type": "object"
       },
+      "VimshottariTimeline": {
+        "description": "Full Vimshottari timeline (dasha_v2). Returned when include_timeline=true on POST /dasha.",
+        "properties": {
+          "antardashas": {
+            "description": "81 Antardashas (9 per Maha) in chronological order.",
+            "items": {
+              "$ref": "#/components/schemas/DashaPeriod"
+            },
+            "type": "array"
+          },
+          "current_antar_pratyantars": {
+            "description": "9 Pratyantars within the currently-active Antar.",
+            "items": {
+              "$ref": "#/components/schemas/DashaPeriod"
+            },
+            "type": "array"
+          },
+          "mahadashas": {
+            "description": "9 Mahadashas spanning the 120-yr cycle from birth_time.",
+            "items": {
+              "$ref": "#/components/schemas/DashaPeriod"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "mahadashas",
+          "antardashas",
+          "current_antar_pratyantars"
+        ],
+        "type": "object"
+      },
       "WholeSignHouse": {
         "properties": {
           "cusp_sidereal_longitude_deg": {
@@ -940,6 +1011,23 @@
           }
         ],
         "summary": "Compute Lahiri sidereal positions"
+      }
+    },
+    "/provenance": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvenanceResponse"
+                }
+              }
+            },
+            "description": "Provenance payload"
+          }
+        },
+        "summary": "Return engine runtime provenance metadata"
       }
     }
   }

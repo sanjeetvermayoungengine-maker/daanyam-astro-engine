@@ -7,6 +7,7 @@ use astro_core::{
     De440Backend,
 };
 use chrono::{TimeZone, Utc};
+use sha2::Digest;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum BackendMode {
@@ -97,11 +98,16 @@ async fn app_state_from_env() -> Result<(ApiState, BackendMode, Option<KernelRes
                     resolution.path.display()
                 ));
             }
+            let mut kernel_hasher = sha2::Sha256::new();
+            kernel_hasher.update(resolution.source.as_bytes());
+            kernel_hasher.update(resolution.path.display().to_string().as_bytes());
+            let kernel_hash = format!("{:x}", kernel_hasher.finalize());
             let state = ApiState::new(
                 std::sync::Arc::new(backend),
                 astro_core::EngineConfig::default(),
                 env!("CARGO_PKG_VERSION"),
-            );
+            )
+            .with_kernel_provenance(kernel_hash, resolution.elapsed.as_secs_f64());
             Ok((state, backend_mode, Some(resolution)))
         }
     }

@@ -1,6 +1,11 @@
 FROM rust:1.85-bookworm AS builder
 WORKDIR /app
 
+ARG GIT_COMMIT=unknown
+ARG BUILD_DATE
+ENV GIT_COMMIT=${GIT_COMMIT}
+ENV BUILD_DATE=${BUILD_DATE}
+
 COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
 COPY tests ./tests
@@ -8,7 +13,8 @@ COPY docs ./docs
 COPY benches ./benches
 COPY README.md RELEASE.md rustfmt.toml ./
 
-RUN cargo build -p astro-api --release
+RUN BUILD_DATE="${BUILD_DATE:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}" \
+    cargo build -p astro-api --release
 
 FROM debian:bookworm-slim AS runtime
 RUN apt-get update \

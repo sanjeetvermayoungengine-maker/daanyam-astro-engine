@@ -6,6 +6,7 @@ Architectural decision records capture cross-cutting decisions for the engine an
 | --- | --- | --- | --- |
 | 0002 | API Schema Versioning | Accepted | [docs/adr/0002-api-schema-versioning.md](/Users/sanjeet/Documents/Playground/docs/adr/0002-api-schema-versioning.md) |
 | 0003 | Topocentric Observer Policy | Proposed | [docs/adr/0003-topocentric-observer-policy.md](/Users/sanjeet/Documents/Playground/docs/adr/0003-topocentric-observer-policy.md) |
+| 0004 | Outer Planets Deferred | Accepted | [docs/adr/0004-outer-planets-deferred.md](0004-outer-planets-deferred.md) |
 
 ## Status vocabulary
 

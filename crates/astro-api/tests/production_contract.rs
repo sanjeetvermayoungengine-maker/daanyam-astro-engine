@@ -8,7 +8,10 @@ fn deployed_base_url() -> Option<String> {
 
 /// API key that is configured in the deployment's `VALID_API_KEYS`. Used for authenticated contract checks.
 fn deployed_api_key() -> Option<String> {
-    std::env::var("ASTRO_API_KEY").ok().map(|value| value.trim().to_owned()).filter(|value| !value.is_empty())
+    std::env::var("ASTRO_API_KEY")
+        .ok()
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty())
 }
 
 fn require_deployed_base_url() -> Option<String> {
@@ -20,9 +23,7 @@ fn require_deployed_base_url() -> Option<String> {
 }
 
 fn require_deployed_base_url_and_api_key() -> Option<(String, String)> {
-    let Some(base_url) = require_deployed_base_url() else {
-        return None;
-    };
+    let base_url = require_deployed_base_url()?;
     let Some(api_key) = deployed_api_key() else {
         eprintln!("skipping authenticated production contract test because ASTRO_API_KEY is unset");
         return None;
@@ -47,7 +48,12 @@ async fn post_json(client: &Client, url: &str, payload: Value) -> reqwest::Respo
         .expect("request must succeed")
 }
 
-async fn post_json_with_api_key(client: &Client, url: &str, payload: Value, api_key: &str) -> reqwest::Response {
+async fn post_json_with_api_key(
+    client: &Client,
+    url: &str,
+    payload: Value,
+    api_key: &str,
+) -> reqwest::Response {
     client
         .post(url)
         .header("content-type", "application/json")
@@ -221,12 +227,15 @@ async fn deployed_protected_routes_return_401_without_api_key() {
     };
 
     let client = http_client();
-    let sidereal = post_json(&client, &format!("{base_url}/positions/sidereal"), minimal_sidereal_payload()).await;
+    let sidereal =
+        post_json(&client, &format!("{base_url}/positions/sidereal"), minimal_sidereal_payload())
+            .await;
     assert_eq!(sidereal.status(), reqwest::StatusCode::UNAUTHORIZED);
     let body: Value = sidereal.json().await.expect("sidereal error body must be json");
     assert_eq!(body["error"].as_str(), Some("missing_api_key"));
 
-    let chart = post_json(&client, &format!("{base_url}/chart/sidereal"), minimal_chart_payload()).await;
+    let chart =
+        post_json(&client, &format!("{base_url}/chart/sidereal"), minimal_chart_payload()).await;
     assert_eq!(chart.status(), reqwest::StatusCode::UNAUTHORIZED);
     let body: Value = chart.json().await.expect("chart error body must be json");
     assert_eq!(body["error"].as_str(), Some("missing_api_key"));

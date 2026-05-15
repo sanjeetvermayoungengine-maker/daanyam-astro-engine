@@ -290,27 +290,31 @@ mod tests {
 
     #[tokio::test(flavor = "current_thread")]
     async fn resolves_existing_local_kernel_path() {
-        let _guard = env_lock();
         let temp_dir =
             std::env::temp_dir().join(format!("astro-core-kernel-local-{}", std::process::id()));
         fs::create_dir_all(&temp_dir).await.expect("temp dir must exist");
         let kernel_path = temp_dir.join("de440.bsp");
         fs::write(&kernel_path, b"de440").await.expect("kernel file must be writable");
-        env::set_var(ASTRO_EPHE_PATH, &kernel_path);
-        env::remove_var(ASTRO_EPHE_GCS_URI);
+        {
+            let _guard = env_lock();
+            env::set_var(ASTRO_EPHE_PATH, &kernel_path);
+            env::remove_var(ASTRO_EPHE_GCS_URI);
+        }
 
         let resolution = resolve_kernel_from_env().await.expect("local kernel must resolve");
         assert_eq!(resolution.path, kernel_path);
         assert!(!resolution.downloaded);
 
-        env::remove_var(ASTRO_EPHE_PATH);
+        {
+            let _guard = env_lock();
+            env::remove_var(ASTRO_EPHE_PATH);
+        }
         let _ = fs::remove_file(&resolution.path).await;
         let _ = fs::remove_dir_all(&temp_dir).await;
     }
 
     #[tokio::test(flavor = "current_thread")]
     async fn reuses_cached_kernel_from_gcs_uri() {
-        let _guard = env_lock();
         let cache_dir =
             std::env::temp_dir().join(format!("astro-core-kernel-cache-{}", std::process::id()));
         let cached_kernel_path = cache_dir.join("daanyam-ephe").join("de440.bsp");
@@ -319,17 +323,23 @@ mod tests {
             .expect("cache parent must be creatable");
         fs::write(&cached_kernel_path, b"de440").await.expect("cached kernel must be writable");
 
-        env::remove_var(ASTRO_EPHE_PATH);
-        env::set_var(ASTRO_EPHE_GCS_URI, "gs://daanyam-ephe/de440.bsp");
-        env::set_var(ASTRO_EPHE_CACHE_DIR, &cache_dir);
+        {
+            let _guard = env_lock();
+            env::remove_var(ASTRO_EPHE_PATH);
+            env::set_var(ASTRO_EPHE_GCS_URI, "gs://daanyam-ephe/de440.bsp");
+            env::set_var(ASTRO_EPHE_CACHE_DIR, &cache_dir);
+        }
 
         let resolution = resolve_kernel_from_env().await.expect("cached gcs kernel must resolve");
         assert_eq!(resolution.path, cached_kernel_path);
         assert!(!resolution.downloaded);
         assert_eq!(fs::read(&resolution.path).await.expect("downloaded file must exist"), b"de440");
 
-        env::remove_var(ASTRO_EPHE_GCS_URI);
-        env::remove_var(ASTRO_EPHE_CACHE_DIR);
+        {
+            let _guard = env_lock();
+            env::remove_var(ASTRO_EPHE_GCS_URI);
+            env::remove_var(ASTRO_EPHE_CACHE_DIR);
+        }
         let _ = fs::remove_dir_all(&cache_dir).await;
     }
 }

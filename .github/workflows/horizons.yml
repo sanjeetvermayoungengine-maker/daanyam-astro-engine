@@ -1,0 +1,46 @@
+name: horizons-regression
+
+on:
+  pull_request:
+    paths:
+      - crates/astro-core/**
+      - crates/astro-vedic/**
+      - crates/astro-api/**
+      - tests/golden/horizons_stations/**
+      - tests/regression/**
+      - .github/workflows/horizons.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  ASTRO_EPHE_PATH: ./ephe/de440.bsp
+
+jobs:
+  horizons-regression:
+    name: horizons-regression
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Authenticate to Google Cloud
+        if: ${{ vars.GCP_PROJECT_ID != '' && secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && secrets.GCP_DEPLOY_SERVICE_ACCOUNT != '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SERVICE_ACCOUNT }}
+      - name: Set up gcloud
+        if: ${{ vars.GCP_PROJECT_ID != '' && secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && secrets.GCP_DEPLOY_SERVICE_ACCOUNT != '' }}
+        uses: google-github-actions/setup-gcloud@v2
+      - name: Fetch DE440 kernel
+        if: ${{ vars.GCP_PROJECT_ID != '' && secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && secrets.GCP_DEPLOY_SERVICE_ACCOUNT != '' }}
+        run: |
+          mkdir -p ./ephe
+          gcloud storage cp gs://${{ vars.CLOUD_RUN_EPHEMERIS_BUCKET || 'daanyam-ephe' }}/de440.bsp "${ASTRO_EPHE_PATH}"
+      - name: Horizons station regressions
+        run: |
+          cargo test -p astro-core outer_planet_stations retrograde_motion_proptest -- --nocapture
+          cargo test -p astro-core de440_horizons_regression_vectors_match -- --nocapture

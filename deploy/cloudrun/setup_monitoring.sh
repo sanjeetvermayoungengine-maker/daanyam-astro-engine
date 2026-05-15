@@ -20,7 +20,9 @@ SERVICE_NAME="${SERVICE_NAME:-astro-api}"
 REGION="${REGION:-asia-south1}"
 SERVICE_URL="${SERVICE_URL:-}"
 SERVICE_HOST="${SERVICE_HOST:-}"
-UPTIME_CHECK_PERIOD="${UPTIME_CHECK_PERIOD:-1}"
+UPTIME_CHECK_PERIOD="${UPTIME_CHECK_PERIOD:-60s}"
+UPTIME_REGIONS="${UPTIME_REGIONS:-asia-southeast1,usa-iowa,europe-west1}"
+UPTIME_CONSECUTIVE_FAILURES="${UPTIME_CONSECUTIVE_FAILURES:-2}"
 ERROR_COUNT_THRESHOLD="${ERROR_COUNT_THRESHOLD:-5}"
 LATENCY_THRESHOLD_MS="${LATENCY_THRESHOLD_MS:-1500}"
 NOTIFICATION_CHANNELS="${NOTIFICATION_CHANNELS:-}"
@@ -48,7 +50,7 @@ if [[ -z "${SERVICE_HOST}" ]]; then
   SERVICE_HOST="${SERVICE_HOST%%/*}"
 fi
 
-UPTIME_DISPLAY_NAME="${UPTIME_DISPLAY_NAME:-${SERVICE_NAME} health}"
+UPTIME_DISPLAY_NAME="${UPTIME_DISPLAY_NAME:-${SERVICE_NAME} health (multi-region)}"
 UPTIME_POLICY_DISPLAY_NAME="${UPTIME_POLICY_DISPLAY_NAME:-${SERVICE_NAME} uptime failure}"
 ERROR_POLICY_DISPLAY_NAME="${ERROR_POLICY_DISPLAY_NAME:-${SERVICE_NAME} 5xx count}"
 LATENCY_POLICY_DISPLAY_NAME="${LATENCY_POLICY_DISPLAY_NAME:-${SERVICE_NAME} p95 latency}"
@@ -102,7 +104,7 @@ ensure_uptime_check() {
       --status-classes=2xx \
       --period="${UPTIME_CHECK_PERIOD}" \
       --timeout=10 \
-      --regions=usa-iowa,usa-oregon,usa-virginia \
+      --regions="${UPTIME_REGIONS}" \
       --validate-ssl=true
     existing_name="$(lookup_uptime_check_name | head -n1)"
   else
@@ -113,7 +115,7 @@ ensure_uptime_check() {
       --set-status-classes=2xx \
       --period="${UPTIME_CHECK_PERIOD}" \
       --timeout=10 \
-      --set-regions=usa-iowa,usa-oregon,usa-virginia \
+      --set-regions="${UPTIME_REGIONS}" \
       --clear-status-codes=true \
       --validate-ssl=true
   fi
@@ -141,6 +143,7 @@ render_policy() {
     -e "s|__UPTIME_CHECK_ID__|$(json_escape "${uptime_check_id}")|g" \
     -e "s|__ERROR_COUNT_THRESHOLD__|${ERROR_COUNT_THRESHOLD}|g" \
     -e "s|__LATENCY_THRESHOLD_MS__|${LATENCY_THRESHOLD_MS}|g" \
+    -e "s|__UPTIME_CONSECUTIVE_FAILURES__|${UPTIME_CONSECUTIVE_FAILURES}|g" \
     -e "s|__NOTIFICATION_CHANNELS__|$(json_escape "${channels_json}")|g" \
     "${template_path}" > "${output_path}"
 }

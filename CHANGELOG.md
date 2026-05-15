@@ -1,5 +1,80 @@
 # Changelog
 
+## 0.18.0
+
+### Added
+
+- Rich public `GET /provenance` manifest: `kernel_id`, `kernel_source`, `ayanamsa_id`, `ayanamsa_algorithm`, `ayanamsa_version`, `git_commit`, `build_date`, `tolerance_arcsec`, `validation_baseline`, `changelog_url`, `node_policy_id`, `supported_bodies` (additive; existing fields unchanged).
+- `Cache-Control: public, max-age=3600` on `/provenance` for CDN caching.
+- Compile-time build metadata via `crates/astro-api/build.rs` (`GIT_COMMIT`, `BUILD_DATE` env overrides for Docker/CI).
+- Phase 1 close artifacts: [docs/runbooks/phase1-checklist-evidence.md](docs/runbooks/phase1-checklist-evidence.md), [docs/retros/phase1.md](docs/retros/phase1.md).
+
+### Changed
+
+- `ENGINE_SEMANTIC_VERSION` aligned to `0.18.0` (was lagging changelog at `0.17.0`).
+
+### Migration note
+
+No breaking changes to `/chart/sidereal`, `/dasha`, or `/positions/*`. `/provenance` gains additive JSON fields only; clients may ignore new keys. Synthetic chart golden (`275.1573701670353°` lagna) unchanged.
+
+Tag release: `git tag -a v0.18.0 -m "Phase 1 close"` then `git push origin v0.18.0` (deploy via [.github/workflows/deploy.yml](.github/workflows/deploy.yml) on tag).
+
+## 0.17.4
+
+### Added
+
+- Horizons-vetted Jupiter and Saturn station-window fixtures: `tests/golden/horizons_stations/`, integration test `outer_planet_stations`, CI workflow `.github/workflows/horizons.yml`.
+- Centralized longitude motion and retrograde sign contract in `astro_core::motion` (epsilon `1e-12`); DE440 proptest `retrograde_motion_proptest`.
+
+### Changed
+
+- `astro-api` sidereal/chart motion now uses `astro_core::longitude_motion` as the single source of truth for speed and retrograde flags.
+
+### Deferred
+
+- Uranus, Neptune, Pluto station regressions — [docs/adr/0004-outer-planets-deferred.md](docs/adr/0004-outer-planets-deferred.md).
+
+### Migration note
+
+No HTTP JSON schema changes for `/chart/sidereal`, `/dasha`, or `/positions/*`. Operators should ensure PRs touching motion paths run the `horizons-regression` workflow (DE440 kernel required).
+
+## 0.17.3
+
+### Added
+
+- Production reliability: `minScale: "1"` aligned on [deploy/cloud_run.yaml](deploy/cloud_run.yaml) (canonical CI path already used [deploy/cloudrun/service.yaml](deploy/cloudrun/service.yaml)).
+- Synthetic chart monitor: [tests/golden/synthetic/delhi-1990-chart.json](tests/golden/synthetic/delhi-1990-chart.json), [scripts/monitoring/synthetic-chart-sidereal.sh](scripts/monitoring/synthetic-chart-sidereal.sh), CI test `synthetic_chart_golden`.
+- Multi-region uptime setup (60s, 2 consecutive failures) in [deploy/cloudrun/setup_monitoring.sh](deploy/cloudrun/setup_monitoring.sh); runbooks [docs/runbooks/oncall.md](docs/runbooks/oncall.md), [docs/runbooks/reliability-min-instances.md](docs/runbooks/reliability-min-instances.md), [docs/perf/baseline-w4.md](docs/perf/baseline-w4.md).
+
+### Migration note
+
+No HTTP JSON schema changes for `/chart/sidereal`, `/dasha`, or `/positions/*`. Operators should confirm `METRICS_TOKEN` on Cloud Run, run W4 load baseline after min-instances deploy, and wire synthetic chart checks (5 min) plus PagerDuty via `NOTIFICATION_CHANNELS`.
+
+## 0.17.2
+
+### Added
+
+- Structured `slo_breach` log events when successful `POST /chart/sidereal` exceeds 200 ms or `POST /dasha` exceeds 300 ms (paired `request_id` with `api_usage`).
+- Observability runbook and BigQuery query templates: `docs/runbooks/observability.md`, `docs/runbooks/queries/latency_p95.sql`.
+- Optional idempotent log-sink helper: `scripts/gcp/create-log-sink.sh`.
+
+### Migration note
+
+No HTTP JSON schema changes for `/chart/sidereal`, `/dasha`, or `/positions/*`. Webapp clients should send `X-Request-Id: <uuidv4>` on every engine call; operators can wire Cloud Logging → BigQuery per the observability runbook.
+
+## 0.17.1
+
+### Added
+
+- Structured `api_usage` request logs now include `engine_version` and `kernel_hash` for deploy correlation.
+- `GET /metrics` Prometheus scrape endpoint, protected by `METRICS_TOKEN` bearer auth (returns 503 when unset).
+- Perf baseline and cold-start documentation under `docs/perf/` (`baseline-w2.md`, `cold-start-w2.md`).
+- Load-test helper script `scripts/load/baseline-chart-sidereal.sh`.
+
+### Migration note
+
+No HTTP JSON schema changes for `/chart/sidereal`, `/dasha`, or `/positions/*`. Operators should set `METRICS_TOKEN` on Cloud Run before scraping; update Prometheus configs to send `Authorization: Bearer`.
+
 ## 0.17.0
 
 ### Changed

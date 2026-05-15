@@ -1,0 +1,87 @@
+{
+  "body": "jupiter",
+  "horizons_target": "599",
+  "horizons_params": {
+    "quantities": "31",
+    "apparent": "airless",
+    "center": "500@399",
+    "ephem_type": "observer",
+    "ang_format": "deg",
+    "ref_system": "icrf",
+    "atmospheric_refraction": "no",
+    "gravitational_deflection": true,
+    "notes": "Observer-centered apparent ecliptic-of-date; matches tests/regression/manifest.json horizons_deflection_on group."
+  },
+  "fixtures": [
+    {
+      "utc": "2020-05-15T12:00:00Z",
+      "horizons_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND='599'&CENTER='500@399'&EPHEM_TYPE=OBSERVER&QUANTITIES='31'&START_TIME='2020-05-15 12:00'&STOP_TIME='2020-05-15 12:00'&STEP_SIZE='1%20d'&APPARENT=AIRLESS&REF_SYSTEM=ICRF&ANG_FORMAT=DEG",
+      "expected_speed_sign": "negative",
+      "station_kind": "retrograde_entry",
+      "tolerance_deg": 1e-7
+    },
+    {
+      "utc": "2021-06-21T12:00:00Z",
+      "horizons_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND='599'&CENTER='500@399'&EPHEM_TYPE=OBSERVER&QUANTITIES='31'&START_TIME='2021-06-21 12:00'&STOP_TIME='2021-06-21 12:00'&STEP_SIZE='1%20d'&APPARENT=AIRLESS&REF_SYSTEM=ICRF&ANG_FORMAT=DEG",
+      "expected_speed_sign": "negative",
+      "station_kind": "retrograde_entry",
+      "tolerance_deg": 1e-7
+    },
+    {
+      "utc": "2022-07-29T12:00:00Z",
+      "horizons_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND='599'&CENTER='500@399'&EPHEM_TYPE=OBSERVER&QUANTITIES='31'&START_TIME='2022-07-29 12:00'&STOP_TIME='2022-07-29 12:00'&STEP_SIZE='1%20d'&APPARENT=AIRLESS&REF_SYSTEM=ICRF&ANG_FORMAT=DEG",
+      "expected_speed_sign": "negative",
+      "station_kind": "retrograde_entry",
+      "tolerance_deg": 1e-7
+    },
+    {
+      "utc": "2023-09-05T12:00:00Z",
+      "horizons_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND='599'&CENTER='500@399'&EPHEM_TYPE=OBSERVER&QUANTITIES='31'&START_TIME='2023-09-05 12:00'&STOP_TIME='2023-09-05 12:00'&STEP_SIZE='1%20d'&APPARENT=AIRLESS&REF_SYSTEM=ICRF&ANG_FORMAT=DEG",
+      "expected_speed_sign": "negative",
+      "station_kind": "retrograde_entry",
+      "tolerance_deg": 1e-7
+    },
+    {
+      "utc": "2024-10-10T12:00:00Z",
+      "horizons_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND='599'&CENTER='500@399'&EPHEM_TYPE=OBSERVER&QUANTITIES='31'&START_TIME='2024-10-10 12:00'&STOP_TIME='2024-10-10 12:00'&STEP_SIZE='1%20d'&APPARENT=AIRLESS&REF_SYSTEM=ICRF&ANG_FORMAT=DEG",
+      "expected_speed_sign": "negative",
+      "station_kind": "retrograde_entry",
+      "tolerance_deg": 1e-7
+    },
+    {
+      "utc": "2020-09-14T12:00:00Z",
+      "horizons_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND='599'&CENTER='500@399'&EPHEM_TYPE=OBSERVER&QUANTITIES='31'&START_TIME='2020-09-14 12:00'&STOP_TIME='2020-09-14 12:00'&STEP_SIZE='1%20d'&APPARENT=AIRLESS&REF_SYSTEM=ICRF&ANG_FORMAT=DEG",
+      "expected_speed_sign": "positive",
+      "station_kind": "direct",
+      "tolerance_deg": 1e-7
+    },
+    {
+      "utc": "2021-10-19T12:00:00Z",
+      "horizons_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND='599'&CENTER='500@399'&EPHEM_TYPE=OBSERVER&QUANTITIES='31'&START_TIME='2021-10-19 12:00'&STOP_TIME='2021-10-19 12:00'&STEP_SIZE='1%20d'&APPARENT=AIRLESS&REF_SYSTEM=ICRF&ANG_FORMAT=DEG",
+      "expected_speed_sign": "positive",
+      "station_kind": "direct",
+      "tolerance_deg": 1e-7
+    },
+    {
+      "utc": "2022-11-24T12:00:00Z",
+      "horizons_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND='599'&CENTER='500@399'&EPHEM_TYPE=OBSERVER&QUANTITIES='31'&START_TIME='2022-11-24 12:00'&STOP_TIME='2022-11-24 12:00'&STEP_SIZE='1%20d'&APPARENT=AIRLESS&REF_SYSTEM=ICRF&ANG_FORMAT=DEG",
+      "expected_speed_sign": "positive",
+      "station_kind": "direct",
+      "tolerance_deg": 1e-7
+    },
+    {
+      "utc": "2024-01-01T12:00:00Z",
+      "horizons_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND='599'&CENTER='500@399'&EPHEM_TYPE=OBSERVER&QUANTITIES='31'&START_TIME='2024-01-01 12:00'&STOP_TIME='2024-01-01 12:00'&STEP_SIZE='1%20d'&APPARENT=AIRLESS&REF_SYSTEM=ICRF&ANG_FORMAT=DEG",
+      "expected_speed_sign": "positive",
+      "station_kind": "direct",
+      "tolerance_deg": 1e-7
+    },
+    {
+      "utc": "2025-02-05T12:00:00Z",
+      "horizons_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND='599'&CENTER='500@399'&EPHEM_TYPE=OBSERVER&QUANTITIES='31'&START_TIME='2025-02-05 12:00'&STOP_TIME='2025-02-05 12:00'&STEP_SIZE='1%20d'&APPARENT=AIRLESS&REF_SYSTEM=ICRF&ANG_FORMAT=DEG",
+      "expected_speed_sign": "positive",
+      "station_kind": "direct",
+      "tolerance_deg": 1e-7
+    }
+  ]
+}

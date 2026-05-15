@@ -24,6 +24,7 @@ Optional observability:
 | Variable | Purpose |
 | --- | --- |
 | `RUST_LOG` | Rust tracing/log filter (e.g. `info`, `warn`). |
+| `METRICS_TOKEN` | Bearer secret for `GET /metrics` (Prometheus scrape). When unset, `/metrics` returns 503. |
 | `GOOGLE_CLOUD_PROJECT`, `GCP_PROJECT`, or `GCLOUD_PROJECT` | When set, `x-cloud-trace-context` is mapped to Cloud Logging trace fields in stderr JSON logs. |
 
 Configurable startup:
@@ -82,7 +83,8 @@ Each request emits one structured JSON line on stderr with `message` set to `api
 - Kubernetes samples:
   - [deploy/k8s/deployment.yaml](../deploy/k8s/deployment.yaml)
   - [deploy/k8s/service.yaml](../deploy/k8s/service.yaml)
-- Cloud Run manifest: [deploy/cloudrun/service.yaml](../deploy/cloudrun/service.yaml)
+- Cloud Run manifest (**canonical** for CI/CD): [deploy/cloudrun/service.yaml](../deploy/cloudrun/service.yaml)
+- Alternate Cloud Run template (hand deploy / `astro-engine` naming): [deploy/cloud_run.yaml](../deploy/cloud_run.yaml) — same `minScale: "1"` policy; not used by `deploy.yml` / `cloudbuild.yaml`
 - GitHub Actions:
   - [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
   - [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)

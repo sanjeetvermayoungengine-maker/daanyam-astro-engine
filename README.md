@@ -57,7 +57,13 @@ PR automation lives in [`.github/workflows/ci.yml`](/Users/sanjeet/Desktop/daany
 
 ## Current status
 
-This sprint delivers the workspace skeleton, initial contracts/utilities, the DE440 apparent-position pipeline for the current graha set, the first Lahiri sidereal slice, API routes, tests, and CI skeleton. Unsupported precision-sensitive features still fail explicitly rather than silently falling back.
+Phase 1 engineering track closes at **v0.18.0**. The HTTP API serves Lahiri sidereal positions, charts, dasha, and a public provenance manifest.
+
+- **Live provenance:** `GET /provenance` (unauthenticated, `Cache-Control: public, max-age=3600`) — kernel, ayanamsa algorithm, build metadata, validation baseline, supported bodies.
+- **Phase 1 retrospective:** [docs/retros/phase1.md](docs/retros/phase1.md)
+- **Checklist evidence:** [docs/runbooks/phase1-checklist-evidence.md](docs/runbooks/phase1-checklist-evidence.md)
+
+Unsupported precision-sensitive features still fail explicitly rather than silently falling back.
 
 ## DE440 ephemeris file
 
@@ -92,7 +98,7 @@ Regression fixtures in [tests/regression/manifest.json](/Users/sanjeet/Documents
 The dedicated sidereal API route documents its JSON contract in [docs/api_positions_sidereal.md](/Users/sanjeet/Documents/Playground/docs/api_positions_sidereal.md). Lahiri provenance and versioning rules are documented in [docs/astronomy.md](/Users/sanjeet/Documents/Playground/docs/astronomy.md) and [CHANGELOG.md](/Users/sanjeet/Documents/Playground/CHANGELOG.md).
 The chart-oriented sidereal contract is documented in [docs/api_chart_sidereal.md](/Users/sanjeet/Documents/Playground/docs/api_chart_sidereal.md).
 Compact mobile sample payloads live in [docs/examples/mobile_chart_compact.json](/Users/sanjeet/Documents/Playground/docs/examples/mobile_chart_compact.json), [docs/examples/mobile_chart_compact_sidereal_only.json](/Users/sanjeet/Documents/Playground/docs/examples/mobile_chart_compact_sidereal_only.json), [docs/examples/mobile_positions_compact.json](/Users/sanjeet/Documents/Playground/docs/examples/mobile_positions_compact.json), and [docs/examples/mobile_positions_sidereal_compact_sidereal_only.json](/Users/sanjeet/Documents/Playground/docs/examples/mobile_positions_sidereal_compact_sidereal_only.json).
-The live OpenAPI 3.1 document is served from `/openapi.json`; interactive docs are at `/docs` (Redoc, same-origin spec). The release artifact is committed at [dist/openapi.json](/Users/sanjeet/Documents/Playground/dist/openapi.json).
+The live OpenAPI 3.1 document is served from `/openapi.json`; interactive docs are at `/docs` (Redoc, same-origin spec). The release artifact is committed at [dist/openapi.json](dist/openapi.json).
 Release candidate local run and packaging steps are documented in [RELEASE.md](/Users/sanjeet/Documents/Playground/RELEASE.md).
 Container and readiness guidance are documented in [docs/deploy.md](/Users/sanjeet/Documents/Playground/docs/deploy.md).
 Cross-route schema governance is documented in [docs/adr/0002-api-schema-versioning.md](/Users/sanjeet/Documents/Playground/docs/adr/0002-api-schema-versioning.md).

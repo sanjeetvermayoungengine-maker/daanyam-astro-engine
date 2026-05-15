@@ -504,6 +504,105 @@
         },
         "type": "object"
       },
+      "ProvenanceResponse": {
+        "properties": {
+          "ayanamsa_algorithm": {
+            "example": "lahiri_swe_zero_epoch_iau1976_v1",
+            "type": "string"
+          },
+          "ayanamsa_id": {
+            "example": "lahiri",
+            "type": "string"
+          },
+          "ayanamsa_used": {
+            "type": "string"
+          },
+          "ayanamsa_version": {
+            "example": "lahiri_swe_zero_epoch_iau1976_v1",
+            "type": "string"
+          },
+          "build_date": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "changelog_url": {
+            "format": "uri",
+            "type": "string"
+          },
+          "engine_mode": {
+            "type": "string"
+          },
+          "engine_semantic_version": {
+            "type": "string"
+          },
+          "git_commit": {
+            "type": "string"
+          },
+          "gravitational_deflection": {
+            "type": "boolean"
+          },
+          "house_system": {
+            "type": "string"
+          },
+          "kernel_hash": {
+            "type": "string"
+          },
+          "kernel_id": {
+            "example": "de440",
+            "type": "string"
+          },
+          "kernel_load_seconds": {
+            "type": "number"
+          },
+          "kernel_source": {
+            "example": "JPL DE440",
+            "type": "string"
+          },
+          "node_policy_id": {
+            "type": "string"
+          },
+          "supported_bodies": {
+            "items": {
+              "$ref": "#/components/schemas/CelestialBody"
+            },
+            "type": "array"
+          },
+          "tolerance_arcsec": {
+            "example": 0.00036,
+            "type": "number"
+          },
+          "validation_baseline": {
+            "example": "JPL Horizons",
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "engine_semantic_version",
+          "version",
+          "engine_mode",
+          "ayanamsa_used",
+          "house_system",
+          "gravitational_deflection",
+          "kernel_hash",
+          "kernel_load_seconds",
+          "kernel_id",
+          "kernel_source",
+          "ayanamsa_id",
+          "ayanamsa_algorithm",
+          "ayanamsa_version",
+          "git_commit",
+          "build_date",
+          "tolerance_arcsec",
+          "validation_baseline",
+          "changelog_url",
+          "node_policy_id",
+          "supported_bodies"
+        ],
+        "type": "object"
+      },
       "ResultMetadata": {
         "properties": {
           "ayanamsa_used": {
@@ -801,6 +900,38 @@
         },
         "type": "object"
       },
+      "VimshottariTimeline": {
+        "description": "Full Vimshottari timeline (dasha_v2). Returned when include_timeline=true on POST /dasha.",
+        "properties": {
+          "antardashas": {
+            "description": "81 Antardashas (9 per Maha) in chronological order.",
+            "items": {
+              "$ref": "#/components/schemas/DashaPeriod"
+            },
+            "type": "array"
+          },
+          "current_antar_pratyantars": {
+            "description": "9 Pratyantars within the currently-active Antar.",
+            "items": {
+              "$ref": "#/components/schemas/DashaPeriod"
+            },
+            "type": "array"
+          },
+          "mahadashas": {
+            "description": "9 Mahadashas spanning the 120-yr cycle from birth_time.",
+            "items": {
+              "$ref": "#/components/schemas/DashaPeriod"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "mahadashas",
+          "antardashas",
+          "current_antar_pratyantars"
+        ],
+        "type": "object"
+      },
       "WholeSignHouse": {
         "properties": {
           "cusp_sidereal_longitude_deg": {
@@ -833,7 +964,7 @@
   },
   "info": {
     "title": "Daanyam Astro Engine API",
-    "version": "0.17.0"
+    "version": "0.18.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -940,6 +1071,23 @@
           }
         ],
         "summary": "Compute Lahiri sidereal positions"
+      }
+    },
+    "/provenance": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvenanceResponse"
+                }
+              }
+            },
+            "description": "Provenance payload"
+          }
+        },
+        "summary": "Return engine runtime provenance metadata"
       }
     }
   }

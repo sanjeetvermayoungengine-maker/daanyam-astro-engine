@@ -2,12 +2,15 @@
 
 This Phase 1 slice keeps monitoring setup explicit and reproducible for the Cloud Run production service.
 
+**Related runbooks:** [observability.md](runbooks/observability.md) (logs, BQ, SLO), [oncall.md](runbooks/oncall.md) (paging, triage, rollback), [monitoring-console-steps.md](runbooks/monitoring-console-steps.md) (manual GCP steps).
+
 ## What this covers
 
-- public uptime check against `GET /health`
-- alert policy for uptime failure
+- multi-region uptime check against `GET /health` (60s period)
+- alert policy for uptime failure (2 consecutive failures)
 - alert policy for Cloud Run 5xx count
 - alert policy for Cloud Run p95 latency
+- synthetic chart transaction monitor (script + CI golden test)
 - post-deploy verification steps
 
 The repo already emits structured request logs with `request_id`, `body_hash`, and `latency_ms`. The monitoring setup here uses built-in Cloud Run metrics first, then relies on logs for incident triage.
@@ -30,12 +33,32 @@ gcloud beta monitoring channels list --project "$PROJECT_ID"
 
 These defaults are intentionally conservative starter values for first production rollout:
 
-- uptime check every `1` minute against `/health`
-- uptime failure alert wired to the created uptime check
-- 5xx count alert when more than `5` responses occur in `5` minutes across the service
-- p95 latency alert when p95 exceeds `1500 ms` over a `10` minute window
+| Policy display name (default) | Condition |
+| --- | --- |
+| `<service> health (multi-region)` | `GET /health` every **60s** from `asia-southeast1`, `usa-iowa`, `europe-west1` |
+| `<service> uptime failure` | Uptime check failed **2** consecutive evaluation periods |
+| `<service> 5xx count` | More than **5** `5xx` responses in **5** minutes |
+| `<service> p95 latency` | p95 &gt; **1500 ms** over **10** minutes |
 
 Tune them after a few days of real traffic.
+
+### Multi-region uptime
+
+Cloud Run serves from **asia-south1**; synthetic probes use the nearest supported Monitoring regions (see [monitoring-console-steps.md](runbooks/monitoring-console-steps.md)):
+
+- **asia-southeast1** (stand-in for asia-south1)
+- **usa-iowa** (us-central1)
+- **europe-west1**
+
+Override with `UPTIME_REGIONS` when running `setup_monitoring.sh`.
+
+### Synthetic chart monitor
+
+- **Script:** [`scripts/monitoring/synthetic-chart-sidereal.sh`](../scripts/monitoring/synthetic-chart-sidereal.sh) — every **5 min** recommended (Cloud Scheduler or cron).
+- **Fixture:** [`tests/golden/synthetic/delhi-1990-chart.json`](../tests/golden/synthetic/delhi-1990-chart.json)
+- **Expected lagna:** `275.1573701670353°` (±1e-6°), rashi `makara` (DE440)
+- **CI:** `cargo test -p astro-api --test synthetic_chart_golden`
+- **Alerting:** alert on non-zero exit (Scheduler failure notification) or wire a log-based metric; URL uptime checks cannot assert JSON fields.
 
 ## One-command setup
 
@@ -53,7 +76,9 @@ Useful overrides:
 
 - `SERVICE_URL` if you want to derive the host from a specific deployed URL
 - `SERVICE_HOST` if you want to target a custom domain directly
-- `UPTIME_CHECK_PERIOD=5` for a slower check cadence
+- `UPTIME_CHECK_PERIOD=120s` for a slower check cadence
+- `UPTIME_REGIONS=asia-southeast1,usa-iowa,europe-west1`
+- `UPTIME_CONSECUTIVE_FAILURES=2`
 - `ERROR_COUNT_THRESHOLD=10`
 - `LATENCY_THRESHOLD_MS=2000`
 
@@ -62,7 +87,8 @@ What the script does:
 1. resolves the Cloud Run service URL or host
 2. creates or updates an uptime check on `https://<host>/health`
 3. creates or updates these alert policies:
-   - `<service> uptime failure`
+   - `<service> health (multi-region)` uptime check
+   - `<service> uptime failure` (2 consecutive failures)
    - `<service> 5xx count`
    - `<service> p95 latency`
 
@@ -116,7 +142,8 @@ That helper:
 ASTRO_API_BASE_URL="https://your-cloud-run-url" cargo test -p astro-api --test production_contract
 ```
 
-4. confirms the uptime check and alert policies exist
+4. confirms the multi-region uptime check (three probe regions) and alert policies exist
+5. optional: run [`scripts/monitoring/synthetic-chart-sidereal.sh`](../scripts/monitoring/synthetic-chart-sidereal.sh) against staging
 
 ## Incident triage
 

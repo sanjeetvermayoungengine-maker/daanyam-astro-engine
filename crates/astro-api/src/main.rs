@@ -1,12 +1,13 @@
 use std::{env, net::SocketAddr};
 
-use astro_api::{app_router, demo_state, ApiState};
+use astro_api::{app_router, demo_state, init_observability, ApiState};
 use astro_core::{
     kernel_resolver::{resolve_kernel_from_env, KernelResolution},
     time::julian_day,
     De440Backend,
 };
 use chrono::{TimeZone, Utc};
+use sha2::Digest;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum BackendMode {
@@ -97,11 +98,16 @@ async fn app_state_from_env() -> Result<(ApiState, BackendMode, Option<KernelRes
                     resolution.path.display()
                 ));
             }
+            let mut kernel_hasher = sha2::Sha256::new();
+            kernel_hasher.update(resolution.source.as_bytes());
+            kernel_hasher.update(resolution.path.display().to_string().as_bytes());
+            let kernel_hash = format!("{:x}", kernel_hasher.finalize());
             let state = ApiState::new(
                 std::sync::Arc::new(backend),
                 astro_core::EngineConfig::default(),
                 env!("CARGO_PKG_VERSION"),
-            );
+            )
+            .with_kernel_provenance(kernel_hash, resolution.elapsed.as_secs_f64());
             Ok((state, backend_mode, Some(resolution)))
         }
     }
@@ -119,6 +125,7 @@ async fn main() {
         );
     }
     eprintln!("astro-api starting with ASTRO_BACKEND={}", backend_mode.as_str());
+    init_observability(&state);
     let app = app_router(state);
     let addr =
         bind_addr_from_env_vars(env::var("HOST").ok().as_deref(), env::var("PORT").ok().as_deref())
@@ -170,13 +177,15 @@ mod tests {
 
     #[tokio::test(flavor = "current_thread")]
     async fn app_state_uses_demo_without_kernel() {
-        let _guard = env_lock();
-        std::env::remove_var("ASTRO_BACKEND");
-        std::env::remove_var("ASTRO_EPHE_PATH");
-        std::env::remove_var("ASTRO_EPHE_GCS_URI");
-        std::env::remove_var("ENVIRONMENT");
-        std::env::remove_var("NODE_ENV");
-        std::env::remove_var("ALLOW_DEMO_BACKEND");
+        {
+            let _guard = env_lock();
+            std::env::remove_var("ASTRO_BACKEND");
+            std::env::remove_var("ASTRO_EPHE_PATH");
+            std::env::remove_var("ASTRO_EPHE_GCS_URI");
+            std::env::remove_var("ENVIRONMENT");
+            std::env::remove_var("NODE_ENV");
+            std::env::remove_var("ALLOW_DEMO_BACKEND");
+        }
         let (_, mode, kernel_resolution) =
             app_state_from_env().await.expect("demo backend must initialize without kernel");
         assert_eq!(mode, BackendMode::Demo);

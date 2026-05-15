@@ -4,9 +4,11 @@ pub mod coords;
 pub mod de440;
 pub mod kernel_resolver;
 pub mod math;
+pub mod motion;
 pub mod time;
 
 pub use backend::*;
 pub use contracts::*;
 pub use de440::*;
 pub use kernel_resolver::*;
+pub use motion::*;

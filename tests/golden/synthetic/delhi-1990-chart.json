@@ -1,0 +1,17 @@
+{
+  "request": {
+    "datetime": { "kind": "utc", "utc": "1990-05-17T04:30:00Z" },
+    "geo": {
+      "latitude_deg": 28.6139,
+      "longitude_deg": 77.209,
+      "elevation_m": 216.0
+    },
+    "ayanamsa": "lahiri",
+    "compact": true,
+    "projection": "sidereal_only"
+  },
+  "expected_lagna_sidereal_longitude_deg": 275.1573701670353,
+  "expected_lagna_rashi": "makara",
+  "tolerance_deg": 1e-6,
+  "notes": "Pinned with DE440 (ASTRO_BACKEND=de440). Delhi 1990-05-17T04:30:00Z; same body as scripts/load/baseline-chart-sidereal.sh delhi fixture."
+}

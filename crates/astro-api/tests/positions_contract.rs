@@ -1,4 +1,6 @@
-use astro_api::{app_router_with_api_keys, de440_state_from_env, demo_state, CHART_SIDEREAL_SCHEMA_VERSION};
+use astro_api::{
+    app_router_with_api_keys, de440_state_from_env, demo_state, CHART_SIDEREAL_SCHEMA_VERSION,
+};
 use axum::{
     body::{to_bytes, Body},
     http::{Method, Request, StatusCode},
@@ -770,11 +772,7 @@ async fn protected_post_routes_return_401_without_api_key() {
     let app = app_router_with_api_keys(demo_state(), [TEST_API_KEY]);
 
     for (method, uri, body) in [
-        (
-            Method::POST,
-            "/positions",
-            r#"{"julian_day":2451545.0,"bodies":["moon"]}"#,
-        ),
+        (Method::POST, "/positions", r#"{"julian_day":2451545.0,"bodies":["moon"]}"#),
         (
             Method::POST,
             "/positions/sidereal",
@@ -804,8 +802,13 @@ async fn protected_post_routes_return_401_without_api_key() {
             .await
             .expect("response must succeed");
 
-        assert_eq!(response.status(), StatusCode::UNAUTHORIZED, "expected 401 for {uri} without credentials");
-        let bytes = to_bytes(response.into_body(), usize::MAX).await.expect("body must be readable");
+        assert_eq!(
+            response.status(),
+            StatusCode::UNAUTHORIZED,
+            "expected 401 for {uri} without credentials"
+        );
+        let bytes =
+            to_bytes(response.into_body(), usize::MAX).await.expect("body must be readable");
         let json: Value = serde_json::from_slice(&bytes).expect("body must be json");
         assert_eq!(json["error"].as_str(), Some("missing_api_key"));
     }

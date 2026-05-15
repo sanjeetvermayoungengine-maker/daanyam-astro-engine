@@ -19,7 +19,7 @@ pub fn read_repo_doc(rel_path: &str) -> String {
 }
 
 pub fn assert_contains(haystack: &str, needle: &str) {
-    assert!(haystack.contains(needle), "expected doc content to contain: {}", needle);
+    assert!(haystack.contains(needle), "expected doc content to contain: {needle}");
 }
 
 pub fn assert_contains_all(haystack: &str, needles: &[&str]) {

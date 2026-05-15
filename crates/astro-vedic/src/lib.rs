@@ -9,6 +9,5 @@ pub use dasha::*;
 pub use sidereal::*;
 pub use vargas::*;
 pub use yogas::{
-    all_yoga_keys, detect_yogas, DetectedYoga, PlanetHouses, PlanetLongitudes, Yoga,
-    YogaChartFacts,
+    all_yoga_keys, detect_yogas, DetectedYoga, PlanetHouses, PlanetLongitudes, Yoga, YogaChartFacts,
 };

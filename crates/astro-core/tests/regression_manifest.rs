@@ -122,8 +122,8 @@ fn adr_index_matches_adr_files() {
             .expect("ADR file stem must be valid UTF-8");
         let id = stem.split('-').next().expect("ADR stem must start with numeric identifier");
 
-        assert!(adr_index.contains(file_name), "ADR index must list file {}", file_name);
-        assert!(adr_index.contains(id), "ADR index must list ADR id {}", id);
+        assert!(adr_index.contains(file_name), "ADR index must list file {file_name}");
+        assert!(adr_index.contains(id), "ADR index must list ADR id {id}");
     }
 
     for row in &table_rows {
@@ -151,8 +151,7 @@ fn adr_index_matches_adr_files() {
             .unwrap_or(&link_target);
         assert!(
             repo_root.join(relative_path.trim_start_matches('/')).exists(),
-            "ADR index references missing file: {}",
-            link_target
+            "ADR index references missing file: {link_target}"
         );
     }
 }
@@ -172,7 +171,7 @@ fn parse_adr_index_row(line: &str) -> Option<AdrIndexRow> {
 
     let columns =
         trimmed.split('|').map(str::trim).filter(|column| !column.is_empty()).collect::<Vec<_>>();
-    assert!(columns.len() >= 4, "ADR index row must have at least four columns: {}", line);
+    assert!(columns.len() >= 4, "ADR index row must have at least four columns: {line}");
     // Parse rule: ADR ids are the leading zero-padded decimal digits from the first table column.
     let numeric_id = columns[0].parse::<u32>().unwrap_or_else(|_| {
         panic!("ADR index id must be a zero-padded decimal number: {}", columns[0])

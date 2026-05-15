@@ -1,6 +1,6 @@
 use std::{env, net::SocketAddr};
 
-use astro_api::{app_router, demo_state, ApiState};
+use astro_api::{app_router, demo_state, init_observability, ApiState};
 use astro_core::{
     kernel_resolver::{resolve_kernel_from_env, KernelResolution},
     time::julian_day,
@@ -125,6 +125,7 @@ async fn main() {
         );
     }
     eprintln!("astro-api starting with ASTRO_BACKEND={}", backend_mode.as_str());
+    init_observability(&state);
     let app = app_router(state);
     let addr =
         bind_addr_from_env_vars(env::var("HOST").ok().as_deref(), env::var("PORT").ok().as_deref())
@@ -176,13 +177,15 @@ mod tests {
 
     #[tokio::test(flavor = "current_thread")]
     async fn app_state_uses_demo_without_kernel() {
-        let _guard = env_lock();
-        std::env::remove_var("ASTRO_BACKEND");
-        std::env::remove_var("ASTRO_EPHE_PATH");
-        std::env::remove_var("ASTRO_EPHE_GCS_URI");
-        std::env::remove_var("ENVIRONMENT");
-        std::env::remove_var("NODE_ENV");
-        std::env::remove_var("ALLOW_DEMO_BACKEND");
+        {
+            let _guard = env_lock();
+            std::env::remove_var("ASTRO_BACKEND");
+            std::env::remove_var("ASTRO_EPHE_PATH");
+            std::env::remove_var("ASTRO_EPHE_GCS_URI");
+            std::env::remove_var("ENVIRONMENT");
+            std::env::remove_var("NODE_ENV");
+            std::env::remove_var("ALLOW_DEMO_BACKEND");
+        }
         let (_, mode, kernel_resolution) =
             app_state_from_env().await.expect("demo backend must initialize without kernel");
         assert_eq!(mode, BackendMode::Demo);

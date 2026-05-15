@@ -26,8 +26,7 @@ pub fn require_de440_kernel() -> Option<PathBuf> {
         }
     } else {
         eprintln!(
-            "skipping DE440-backed test: ASTRO_EPHE_PATH is unset and fallback ephemeris file is missing at {}",
-            TEST_FALLBACK_EPHE_PATH
+            "skipping DE440-backed test: ASTRO_EPHE_PATH is unset and fallback ephemeris file is missing at {TEST_FALLBACK_EPHE_PATH}"
         );
     }
 

@@ -1,5 +1,7 @@
 #![recursion_limit = "256"]
 
+mod metrics;
+
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     sync::{Arc, Mutex},
@@ -22,7 +24,7 @@ use astro_vedic::{
 use axum::{
     body::{to_bytes, Body},
     extract::{Request, State},
-    http::{HeaderMap, HeaderValue, Method, StatusCode},
+    http::{header::CACHE_CONTROL, HeaderMap, HeaderValue, Method, StatusCode},
     middleware::{self, Next},
     response::{Html, IntoResponse, Response},
     routing::{get, post},
@@ -34,11 +36,18 @@ use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-pub const ENGINE_SEMANTIC_VERSION: &str = "0.17.0";
+pub const ENGINE_SEMANTIC_VERSION: &str = "0.18.0";
 pub const NODE_POLICY_ID: &str = "true_node_mean_ecliptic_of_date";
+pub const VALIDATION_BASELINE: &str = "JPL Horizons";
+/// Station-suite longitude tolerance: 1e-7° expressed in arcseconds.
+pub const PROVENANCE_TOLERANCE_ARCSEC: f64 = 0.00036;
+pub const DEFAULT_CHANGELOG_URL: &str =
+    "https://github.com/daanyam/astro-engine/blob/main/CHANGELOG.md";
+const BUILD_GIT_COMMIT: &str = env!("GIT_COMMIT");
+const BUILD_DATE_RFC3339: &str = env!("BUILD_DATE");
 pub const CHART_SIDEREAL_SCHEMA_VERSION: &str = "chart_sidereal_v1";
 pub const DASHA_SCHEMA_VERSION: &str = "dasha_v2";
-const RETROGRADE_DELTA_DAYS: f64 = 0.5;
+/// Inbound `X-Request-Id` is accepted when present; the same value is echoed on the response.
 const REQUEST_ID_HEADER: &str = "x-request-id";
 const CORRELATION_ID_HEADER: &str = "x-correlation-id";
 const TRACEPARENT_HEADER: &str = "traceparent";
@@ -49,6 +58,7 @@ const RETRY_AFTER_HEADER: &str = "retry-after";
 const API_KEY_HEADER: &str = "x-api-key";
 const AUTHORIZATION_HEADER: &str = "authorization";
 const API_KEY_LOG_PREFIX_CHARS: usize = 8;
+const METRICS_TOKEN_ENV_VAR: &str = "METRICS_TOKEN";
 
 /// Redoc UI loads the spec from the same origin (`GET /openapi.json`). The bundle is pinned for stable builds.
 const REDOC_STANDALONE_JS: &str =
@@ -88,6 +98,23 @@ impl ApiState {
         self.kernel_load_seconds = kernel_load_seconds;
         self
     }
+
+    pub fn engine_version(&self) -> &str {
+        &self.version
+    }
+
+    pub fn kernel_hash(&self) -> &str {
+        &self.kernel_hash
+    }
+
+    pub fn kernel_load_seconds(&self) -> f64 {
+        self.kernel_load_seconds
+    }
+}
+
+/// Install the Prometheus recorder and set startup gauges from `state`.
+pub fn init_observability(state: &ApiState) {
+    metrics::init(state);
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -106,6 +133,80 @@ pub struct ProvenanceResponse {
     pub gravitational_deflection: bool,
     pub kernel_hash: String,
     pub kernel_load_seconds: f64,
+    pub kernel_id: String,
+    pub kernel_source: String,
+    pub ayanamsa_id: String,
+    pub ayanamsa_algorithm: String,
+    pub ayanamsa_version: String,
+    pub git_commit: String,
+    pub build_date: String,
+    pub tolerance_arcsec: f64,
+    pub validation_baseline: String,
+    pub changelog_url: String,
+    pub node_policy_id: String,
+    pub supported_bodies: Vec<CelestialBody>,
+}
+
+pub fn supported_celestial_bodies() -> &'static [CelestialBody] {
+    &[
+        CelestialBody::Sun,
+        CelestialBody::Moon,
+        CelestialBody::Mercury,
+        CelestialBody::Venus,
+        CelestialBody::Mars,
+        CelestialBody::Jupiter,
+        CelestialBody::Saturn,
+        CelestialBody::Rahu,
+        CelestialBody::Ketu,
+    ]
+}
+
+fn changelog_url_from_env() -> String {
+    std::env::var("GITHUB_REPO_URL")
+        .map(|base| format!("{}/blob/main/CHANGELOG.md", base.trim_end_matches('/')))
+        .unwrap_or_else(|_| DEFAULT_CHANGELOG_URL.to_owned())
+}
+
+fn ayanamsa_id_from_model(model: AyanamsaModel) -> String {
+    serde_json::to_value(model)
+        .ok()
+        .and_then(|value| value.as_str().map(str::to_owned))
+        .unwrap_or_else(|| "lahiri".to_owned())
+}
+
+fn kernel_catalog(kernel_hash: &str) -> (&'static str, &'static str) {
+    if kernel_hash.is_empty() {
+        ("demo", "In-memory analytic ephemeris")
+    } else {
+        ("de440", "JPL DE440")
+    }
+}
+
+pub fn build_provenance_response(state: &ApiState) -> ProvenanceResponse {
+    let (kernel_id, kernel_source) = kernel_catalog(state.kernel_hash());
+    let ayanamsa_id = ayanamsa_id_from_model(state.config.ayanamsa);
+    ProvenanceResponse {
+        engine_semantic_version: ENGINE_SEMANTIC_VERSION.to_owned(),
+        version: state.engine_version().to_owned(),
+        engine_mode: state.config.mode,
+        ayanamsa_used: state.config.ayanamsa,
+        house_system: state.config.house_system,
+        gravitational_deflection: state.config.gravitational_deflection,
+        kernel_hash: state.kernel_hash().to_owned(),
+        kernel_load_seconds: state.kernel_load_seconds(),
+        kernel_id: kernel_id.to_owned(),
+        kernel_source: kernel_source.to_owned(),
+        ayanamsa_id: ayanamsa_id.clone(),
+        ayanamsa_algorithm: LAHIRI_ALGO_ID.to_owned(),
+        ayanamsa_version: LAHIRI_ALGO_ID.to_owned(),
+        git_commit: BUILD_GIT_COMMIT.to_owned(),
+        build_date: BUILD_DATE_RFC3339.to_owned(),
+        tolerance_arcsec: PROVENANCE_TOLERANCE_ARCSEC,
+        validation_baseline: VALIDATION_BASELINE.to_owned(),
+        changelog_url: changelog_url_from_env(),
+        node_policy_id: NODE_POLICY_ID.to_owned(),
+        supported_bodies: supported_celestial_bodies().to_vec(),
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -337,9 +438,11 @@ where
 
 fn build_app_router(state: ApiState, auth: ApiAuthConfig) -> Router {
     let rate_limiter = RateLimiter::from_env();
+    let observability_state = state.clone();
     Router::new()
         .route("/health", get(health))
         .route("/provenance", get(provenance))
+        .route("/metrics", get(metrics_endpoint))
         .route("/positions", post(positions))
         .route("/positions/sidereal", post(sidereal_positions))
         .route("/chart/sidereal", post(sidereal_chart))
@@ -358,7 +461,7 @@ fn build_app_router(state: ApiState, auth: ApiAuthConfig) -> Router {
             let auth = auth.clone();
             async move { auth_middleware(request, next, auth).await }
         }))
-        .layer(middleware::from_fn(observability_middleware))
+        .layer(middleware::from_fn_with_state(observability_state, observability_middleware))
 }
 
 #[derive(Clone, Debug)]
@@ -530,6 +633,7 @@ fn is_public_route(method: &Method, path: &str) -> bool {
         (method, path),
         (&Method::GET, "/health")
             | (&Method::GET, "/provenance")
+            | (&Method::GET, "/metrics")
             | (&Method::GET, "/openapi.json")
             | (&Method::GET, "/docs")
     )
@@ -557,7 +661,12 @@ fn unauthorized_response(error: &'static str) -> Response {
     (StatusCode::UNAUTHORIZED, Json(ErrorPayload { error: error.to_owned() })).into_response()
 }
 
-async fn observability_middleware(mut request: Request, next: Next) -> Response {
+async fn observability_middleware(
+    State(state): State<ApiState>,
+    mut request: Request,
+    next: Next,
+) -> Response {
+    init_observability(&state);
     let started_at = Instant::now();
     let method = request.method().clone();
     let path = request.uri().path().to_owned();
@@ -572,17 +681,27 @@ async fn observability_middleware(mut request: Request, next: Next) -> Response 
         response.headers_mut().insert(REQUEST_ID_HEADER, header_value);
     }
 
-    emit_request_log(RequestLogEntry {
+    let status = response.status().as_u16();
+    let latency_ms = started_at.elapsed().as_millis();
+    metrics::record_request(&path, status, latency_ms);
+    let log_entry = RequestLogEntry {
         method: &method,
         path: &path,
         query: query.as_deref(),
-        status: response.status().as_u16(),
-        latency_ms: started_at.elapsed().as_millis(),
+        status,
+        latency_ms,
         request_id: &request_id,
         body_hash: body_hash.as_deref(),
         api_key_prefix: &api_key_prefix,
         headers: &headers,
-    });
+    };
+    let engine_version = state.engine_version();
+    let kernel_hash = state.kernel_hash();
+    emit_request_log(&log_entry, engine_version, kernel_hash);
+    if should_emit_slo_breach(log_entry.path, status, latency_ms) {
+        let target_ms = slo_target_ms(log_entry.path).expect("checked by should_emit_slo_breach");
+        emit_slo_breach_log(&log_entry, target_ms, engine_version, kernel_hash);
+    }
 
     response
 }
@@ -599,7 +718,11 @@ struct RequestLogEntry<'a> {
     headers: &'a HeaderMap,
 }
 
-fn emit_request_log(entry: RequestLogEntry<'_>) {
+fn request_log_payload(
+    entry: &RequestLogEntry<'_>,
+    engine_version: &str,
+    kernel_hash: &str,
+) -> Value {
     let mut payload = json!({
         "severity": request_log_severity(entry.status),
         "message": "api_usage",
@@ -609,6 +732,8 @@ fn emit_request_log(entry: RequestLogEntry<'_>) {
         "path": entry.path,
         "status": entry.status,
         "latency_ms": entry.latency_ms,
+        "engine_version": engine_version,
+        "kernel_hash": kernel_hash,
     });
 
     if let Some(query) = entry.query {
@@ -641,6 +766,55 @@ fn emit_request_log(entry: RequestLogEntry<'_>) {
         }
     }
 
+    payload
+}
+
+fn emit_request_log(entry: &RequestLogEntry<'_>, engine_version: &str, kernel_hash: &str) {
+    let payload = request_log_payload(entry, engine_version, kernel_hash);
+    eprintln!("{payload}");
+}
+
+const CHART_SIDEREAL_SLO_MS: u128 = 200;
+const DASHA_SLO_MS: u128 = 300;
+
+fn slo_target_ms(path: &str) -> Option<u128> {
+    match path {
+        "/chart/sidereal" => Some(CHART_SIDEREAL_SLO_MS),
+        "/dasha" => Some(DASHA_SLO_MS),
+        _ => None,
+    }
+}
+
+fn should_emit_slo_breach(path: &str, status: u16, latency_ms: u128) -> bool {
+    (200..300).contains(&status) && slo_target_ms(path).is_some_and(|target| latency_ms > target)
+}
+
+fn slo_breach_payload(
+    entry: &RequestLogEntry<'_>,
+    target_ms: u128,
+    engine_version: &str,
+    kernel_hash: &str,
+) -> Value {
+    json!({
+        "severity": "WARNING",
+        "message": "slo_breach",
+        "slo_breach": true,
+        "path": entry.path,
+        "target_ms": target_ms,
+        "actual_ms": entry.latency_ms,
+        "request_id": entry.request_id,
+        "engine_version": engine_version,
+        "kernel_hash": kernel_hash,
+    })
+}
+
+fn emit_slo_breach_log(
+    entry: &RequestLogEntry<'_>,
+    target_ms: u128,
+    engine_version: &str,
+    kernel_hash: &str,
+) {
+    let payload = slo_breach_payload(entry, target_ms, engine_version, kernel_hash);
     eprintln!("{payload}");
 }
 
@@ -739,21 +913,64 @@ fn forwarded_for_ip(headers: &HeaderMap) -> Option<String> {
         .map(|value| value.split(',').next().map(str::trim).unwrap_or("").to_owned())
 }
 
+fn metrics_token_from_env() -> Option<String> {
+    std::env::var(METRICS_TOKEN_ENV_VAR)
+        .ok()
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty())
+}
+
+async fn metrics_endpoint(State(state): State<ApiState>, headers: HeaderMap) -> Response {
+    let Some(expected_token) = metrics_token_from_env() else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(ErrorPayload { error: "metrics_disabled".to_owned() }),
+        )
+            .into_response();
+    };
+
+    init_observability(&state);
+
+    let Some(token) = bearer_token(&headers) else {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(ErrorPayload { error: "missing_metrics_token".to_owned() }),
+        )
+            .into_response();
+    };
+
+    if token != expected_token {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ErrorPayload { error: "invalid_metrics_token".to_owned() }),
+        )
+            .into_response();
+    }
+
+    let Some(body) = metrics::render() else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(ErrorPayload { error: "metrics_disabled".to_owned() }),
+        )
+            .into_response();
+    };
+
+    (
+        StatusCode::OK,
+        [(axum::http::header::CONTENT_TYPE, "text/plain; version=0.0.4; charset=utf-8")],
+        body,
+    )
+        .into_response()
+}
+
 async fn health(State(state): State<ApiState>) -> Json<HealthResponse> {
     Json(HealthResponse { status: "ok", version: state.version })
 }
 
-async fn provenance(State(state): State<ApiState>) -> Json<ProvenanceResponse> {
-    Json(ProvenanceResponse {
-        engine_semantic_version: ENGINE_SEMANTIC_VERSION.to_owned(),
-        version: state.version.clone(),
-        engine_mode: state.config.mode,
-        ayanamsa_used: state.config.ayanamsa,
-        house_system: state.config.house_system,
-        gravitational_deflection: state.config.gravitational_deflection,
-        kernel_hash: state.kernel_hash.clone(),
-        kernel_load_seconds: state.kernel_load_seconds,
-    })
+async fn provenance(State(state): State<ApiState>) -> Response {
+    let cache_control = HeaderValue::from_static("public, max-age=3600");
+    (StatusCode::OK, [(CACHE_CONTROL, cache_control)], Json(build_provenance_response(&state)))
+        .into_response()
 }
 
 async fn openapi_json() -> Json<Value> {
@@ -820,11 +1037,8 @@ async fn dasha(
     let include_timeline = request.include_timeline.unwrap_or(false);
 
     let payload = if include_timeline {
-        let (current, timeline) = vimshottari_timeline(
-            request.moon_sidereal_longitude_deg,
-            birth_time,
-            as_of,
-        );
+        let (current, timeline) =
+            vimshottari_timeline(request.moon_sidereal_longitude_deg, birth_time, as_of);
         DashaPayload {
             dasha: current.clone(),
             schema_version: DASHA_SCHEMA_VERSION.to_string(),
@@ -1021,7 +1235,7 @@ fn compute_sidereal_positions(
 fn build_sidereal_position(
     tropical: PositionResult,
     jd_tdb: f64,
-    motion: LongitudeMotion,
+    motion: astro_core::LongitudeMotion,
     projection: ChartProjection,
 ) -> SiderealPositionResult {
     let sidereal_longitude = sidereal_longitude_deg(tropical.position.longitude_deg, jd_tdb);
@@ -1039,7 +1253,7 @@ fn build_sidereal_position(
         tropical_longitude_deg: include_tropical.then_some(tropical.position.longitude_deg),
         tropical_latitude_deg: include_tropical.then_some(tropical.position.latitude_deg),
         sidereal_longitude_deg: sidereal_longitude,
-        longitude_speed_deg_per_day: motion.speed_deg_per_day,
+        longitude_speed_deg_per_day: motion.longitude_speed_deg_per_day,
         retrograde: motion.retrograde,
         distance_au: tropical.position.distance_au,
         moon_division,
@@ -1233,41 +1447,9 @@ fn body_longitude_motion(
     body: CelestialBody,
     jd_utc: f64,
     config: &EngineConfig,
-) -> Result<LongitudeMotion, SiderealRequestError> {
-    let previous = state
-        .backend
-        .position(
-            body,
-            jd_utc - RETROGRADE_DELTA_DAYS,
-            CoordinateFrame::EclipticGeocentric,
-            None,
-            config,
-        )
-        .map_err(SiderealRequestError::Backend)?;
-    let next = state
-        .backend
-        .position(
-            body,
-            jd_utc + RETROGRADE_DELTA_DAYS,
-            CoordinateFrame::EclipticGeocentric,
-            None,
-            config,
-        )
-        .map_err(SiderealRequestError::Backend)?;
-    let delta =
-        signed_longitude_delta_deg(previous.position.longitude_deg, next.position.longitude_deg);
-    let speed_deg_per_day = delta / (RETROGRADE_DELTA_DAYS * 2.0);
-    Ok(LongitudeMotion { speed_deg_per_day, retrograde: speed_deg_per_day < 0.0 })
-}
-
-fn signed_longitude_delta_deg(start_deg: f64, end_deg: f64) -> f64 {
-    (end_deg - start_deg + 540.0).rem_euclid(360.0) - 180.0
-}
-
-#[derive(Debug, Clone, Copy)]
-struct LongitudeMotion {
-    speed_deg_per_day: f64,
-    retrograde: bool,
+) -> Result<astro_core::LongitudeMotion, SiderealRequestError> {
+    astro_core::longitude_motion(state.backend.as_ref(), body, jd_utc, config)
+        .map_err(SiderealRequestError::Backend)
 }
 
 fn rashi_lord(rashi: Rashi) -> CelestialBody {
@@ -1428,7 +1610,19 @@ pub fn openapi_spec() -> Value {
                         "house_system",
                         "gravitational_deflection",
                         "kernel_hash",
-                        "kernel_load_seconds"
+                        "kernel_load_seconds",
+                        "kernel_id",
+                        "kernel_source",
+                        "ayanamsa_id",
+                        "ayanamsa_algorithm",
+                        "ayanamsa_version",
+                        "git_commit",
+                        "build_date",
+                        "tolerance_arcsec",
+                        "validation_baseline",
+                        "changelog_url",
+                        "node_policy_id",
+                        "supported_bodies"
                     ],
                     "properties": {
                         "engine_semantic_version": { "type": "string" },
@@ -1438,7 +1632,22 @@ pub fn openapi_spec() -> Value {
                         "house_system": { "type": "string" },
                         "gravitational_deflection": { "type": "boolean" },
                         "kernel_hash": { "type": "string" },
-                        "kernel_load_seconds": { "type": "number" }
+                        "kernel_load_seconds": { "type": "number" },
+                        "kernel_id": { "type": "string", "example": "de440" },
+                        "kernel_source": { "type": "string", "example": "JPL DE440" },
+                        "ayanamsa_id": { "type": "string", "example": "lahiri" },
+                        "ayanamsa_algorithm": { "type": "string", "example": "lahiri_swe_zero_epoch_iau1976_v1" },
+                        "ayanamsa_version": { "type": "string", "example": "lahiri_swe_zero_epoch_iau1976_v1" },
+                        "git_commit": { "type": "string" },
+                        "build_date": { "type": "string", "format": "date-time" },
+                        "tolerance_arcsec": { "type": "number", "example": 0.00036 },
+                        "validation_baseline": { "type": "string", "example": "JPL Horizons" },
+                        "changelog_url": { "type": "string", "format": "uri" },
+                        "node_policy_id": { "type": "string" },
+                        "supported_bodies": {
+                            "type": "array",
+                            "items": { "$ref": "#/components/schemas/CelestialBody" }
+                        }
                     }
                 },
                 "SiderealPositionsRequest": {
@@ -2013,6 +2222,11 @@ mod tests {
         LOCK.get_or_init(|| Mutex::new(())).lock().expect("env lock poisoned")
     }
 
+    fn metrics_test_lock() -> std::sync::MutexGuard<'static, ()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(())).lock().expect("metrics test lock poisoned")
+    }
+
     fn test_app() -> Router {
         app_router_with_api_keys(demo_state(), [TEST_API_KEY])
     }
@@ -2077,6 +2291,211 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn request_id_header_canonical_casing_is_preserved() {
+        let app = test_app();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/health")
+                    .header("X-Request-Id", "canonical-case-id-789")
+                    .body(Body::empty())
+                    .expect("request must build"),
+            )
+            .await
+            .expect("response must succeed");
+
+        assert_eq!(
+            response.headers().get(REQUEST_ID_HEADER).and_then(|value| value.to_str().ok()),
+            Some("canonical-case-id-789")
+        );
+    }
+
+    #[test]
+    fn request_log_payload_includes_engine_version_and_kernel_hash() {
+        let headers = HeaderMap::new();
+        let entry = RequestLogEntry {
+            method: &Method::POST,
+            path: "/chart/sidereal",
+            query: None,
+            status: 200,
+            latency_ms: 42,
+            request_id: "req-1",
+            body_hash: Some("sha256:abc"),
+            api_key_prefix: "testkey…",
+            headers: &headers,
+        };
+        let payload = request_log_payload(&entry, "0.1.0", "kernel-digest");
+        assert_eq!(payload["message"].as_str(), Some("api_usage"));
+        assert_eq!(payload["request_id"].as_str(), Some("req-1"));
+        assert_eq!(payload["path"].as_str(), Some("/chart/sidereal"));
+        assert_eq!(payload["status"].as_u64(), Some(200));
+        assert_eq!(payload["latency_ms"].as_u64(), Some(42));
+        assert_eq!(payload["engine_version"].as_str(), Some("0.1.0"));
+        assert_eq!(payload["kernel_hash"].as_str(), Some("kernel-digest"));
+        assert_eq!(payload["api_key_prefix"].as_str(), Some("testkey…"));
+        assert_eq!(payload["request_body_hash"].as_str(), Some("sha256:abc"));
+    }
+
+    fn sample_log_entry<'a>(
+        path: &'a str,
+        status: u16,
+        latency_ms: u128,
+        headers: &'a HeaderMap,
+    ) -> RequestLogEntry<'a> {
+        RequestLogEntry {
+            method: &Method::POST,
+            path,
+            query: None,
+            status,
+            latency_ms,
+            request_id: "req-slo-test",
+            body_hash: None,
+            api_key_prefix: "testkey…",
+            headers,
+        }
+    }
+
+    #[test]
+    fn slo_breach_payload_emitted_when_latency_exceeds_chart_sidereal_target() {
+        let headers = HeaderMap::new();
+        let entry = sample_log_entry("/chart/sidereal", 200, 201, &headers);
+        assert!(should_emit_slo_breach(entry.path, entry.status, entry.latency_ms));
+        let payload = slo_breach_payload(&entry, CHART_SIDEREAL_SLO_MS, "0.17.2", "kernel-digest");
+        assert_eq!(payload["severity"].as_str(), Some("WARNING"));
+        assert_eq!(payload["message"].as_str(), Some("slo_breach"));
+        assert_eq!(payload["slo_breach"].as_bool(), Some(true));
+        assert_eq!(payload["path"].as_str(), Some("/chart/sidereal"));
+        assert_eq!(payload["target_ms"].as_u64(), Some(200));
+        assert_eq!(payload["actual_ms"].as_u64(), Some(201));
+        assert_eq!(payload["request_id"].as_str(), Some("req-slo-test"));
+        assert_eq!(payload["engine_version"].as_str(), Some("0.17.2"));
+        assert_eq!(payload["kernel_hash"].as_str(), Some("kernel-digest"));
+    }
+
+    #[test]
+    fn slo_breach_not_emitted_at_exact_chart_sidereal_target() {
+        let headers = HeaderMap::new();
+        let entry = sample_log_entry("/chart/sidereal", 200, 200, &headers);
+        assert!(!should_emit_slo_breach(entry.path, entry.status, entry.latency_ms));
+    }
+
+    #[test]
+    fn slo_breach_not_emitted_for_non_success_status() {
+        assert!(!should_emit_slo_breach("/chart/sidereal", 500, 500));
+        assert!(!should_emit_slo_breach("/chart/sidereal", 404, 500));
+    }
+
+    #[test]
+    fn slo_breach_not_emitted_for_untracked_paths() {
+        assert!(!should_emit_slo_breach("/health", 200, 10_000));
+    }
+
+    #[test]
+    fn slo_breach_payload_emitted_when_latency_exceeds_dasha_target() {
+        let headers = HeaderMap::new();
+        let entry = sample_log_entry("/dasha", 200, 301, &headers);
+        assert!(should_emit_slo_breach(entry.path, entry.status, entry.latency_ms));
+        let payload = slo_breach_payload(&entry, DASHA_SLO_MS, "0.17.2", "kernel-digest");
+        assert_eq!(payload["path"].as_str(), Some("/dasha"));
+        assert_eq!(payload["target_ms"].as_u64(), Some(300));
+        assert_eq!(payload["actual_ms"].as_u64(), Some(301));
+    }
+
+    #[allow(clippy::await_holding_lock)]
+    #[tokio::test]
+    async fn metrics_returns_503_when_token_unset() {
+        let _serial = metrics_test_lock();
+        std::env::remove_var(METRICS_TOKEN_ENV_VAR);
+
+        let app = test_app();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/metrics")
+                    .body(Body::empty())
+                    .expect("request must build"),
+            )
+            .await
+            .expect("response must succeed");
+
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    }
+
+    #[allow(clippy::await_holding_lock)]
+    #[tokio::test]
+    async fn metrics_returns_401_without_bearer_token() {
+        let _serial = metrics_test_lock();
+        std::env::set_var(METRICS_TOKEN_ENV_VAR, "test-metrics-secret");
+
+        let app = test_app();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/metrics")
+                    .body(Body::empty())
+                    .expect("request must build"),
+            )
+            .await
+            .expect("response must succeed");
+
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        std::env::remove_var(METRICS_TOKEN_ENV_VAR);
+    }
+
+    #[allow(clippy::await_holding_lock)]
+    #[tokio::test]
+    async fn metrics_returns_403_with_invalid_bearer_token() {
+        let _serial = metrics_test_lock();
+        std::env::set_var(METRICS_TOKEN_ENV_VAR, "test-metrics-secret");
+
+        let app = test_app();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/metrics")
+                    .header(AUTHORIZATION_HEADER, "Bearer wrong-token")
+                    .body(Body::empty())
+                    .expect("request must build"),
+            )
+            .await
+            .expect("response must succeed");
+
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        std::env::remove_var(METRICS_TOKEN_ENV_VAR);
+    }
+
+    #[allow(clippy::await_holding_lock)]
+    #[tokio::test]
+    async fn metrics_returns_prometheus_body_with_valid_bearer_token() {
+        let _serial = metrics_test_lock();
+        std::env::set_var(METRICS_TOKEN_ENV_VAR, "test-metrics-secret");
+
+        let app = test_app();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/metrics")
+                    .header(AUTHORIZATION_HEADER, "Bearer test-metrics-secret")
+                    .body(Body::empty())
+                    .expect("request must build"),
+            )
+            .await
+            .expect("response must succeed");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX).await.expect("body must be readable");
+        let text = String::from_utf8(body.to_vec()).expect("metrics body must be utf-8");
+        assert!(text.contains("astro_requests_total"));
+        assert!(text.contains("astro_kernel_load_seconds"));
+        std::env::remove_var(METRICS_TOKEN_ENV_VAR);
+    }
+
     #[test]
     fn body_hash_is_stable_sha256() {
         assert_eq!(
@@ -2131,8 +2550,10 @@ mod tests {
 
     #[tokio::test]
     async fn rate_limit_returns_429_with_retry_after() {
-        let _guard = env_lock();
-        std::env::set_var(RATE_LIMIT_RPM_ENV_VAR, "2");
+        {
+            let _guard = env_lock();
+            std::env::set_var(RATE_LIMIT_RPM_ENV_VAR, "2");
+        }
 
         let app = test_app();
 
@@ -2165,7 +2586,10 @@ mod tests {
         let json: Value = serde_json::from_slice(&body).expect("body must be valid json");
         assert_eq!(json, serde_json::json!({ "error": "rate_limit_exceeded" }));
 
-        std::env::remove_var(RATE_LIMIT_RPM_ENV_VAR);
+        {
+            let _guard = env_lock();
+            std::env::remove_var(RATE_LIMIT_RPM_ENV_VAR);
+        }
     }
 
     #[test]
@@ -2554,10 +2978,7 @@ mod tests {
         let body = to_bytes(response.into_body(), usize::MAX).await.expect("body must be readable");
         let html = String::from_utf8(body.to_vec()).expect("docs body must be utf-8");
         assert!(html.contains("spec-url=\"/openapi.json\""));
-        assert!(
-            html.contains(REDOC_STANDALONE_JS),
-            "expected pinned Redoc script URL in HTML",
-        );
+        assert!(html.contains(REDOC_STANDALONE_JS), "expected pinned Redoc script URL in HTML",);
     }
 
     #[tokio::test]
@@ -2575,11 +2996,28 @@ mod tests {
             .expect("response must succeed");
 
         assert_eq!(response.status(), StatusCode::OK);
+        let cache_control =
+            response.headers().get(CACHE_CONTROL).and_then(|value| value.to_str().ok());
+        assert_eq!(cache_control, Some("public, max-age=3600"));
         let body = to_bytes(response.into_body(), usize::MAX).await.expect("body must be readable");
         let json: Value = serde_json::from_slice(&body).expect("body must be valid json");
+        assert_eq!(json["engine_semantic_version"], ENGINE_SEMANTIC_VERSION);
         assert!(json["version"].is_string());
         assert!(json["kernel_hash"].is_string());
         assert!(json["kernel_load_seconds"].is_number());
+        assert_eq!(json["kernel_id"], "demo");
+        assert_eq!(json["kernel_source"], "In-memory analytic ephemeris");
+        assert_eq!(json["ayanamsa_id"], "lahiri");
+        assert_eq!(json["ayanamsa_algorithm"], LAHIRI_ALGO_ID);
+        assert_eq!(json["ayanamsa_version"], LAHIRI_ALGO_ID);
+        assert!(json["git_commit"].is_string());
+        assert!(json["build_date"].is_string());
+        assert_eq!(json["tolerance_arcsec"], PROVENANCE_TOLERANCE_ARCSEC);
+        assert_eq!(json["validation_baseline"], VALIDATION_BASELINE);
+        assert_eq!(json["changelog_url"], DEFAULT_CHANGELOG_URL);
+        assert_eq!(json["node_policy_id"], NODE_POLICY_ID);
+        let bodies = json["supported_bodies"].as_array().expect("supported_bodies array");
+        assert_eq!(bodies.len(), supported_celestial_bodies().len());
     }
 
     #[tokio::test]

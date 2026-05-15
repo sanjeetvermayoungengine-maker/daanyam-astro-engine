@@ -21,7 +21,7 @@ mod chandra_mangal;
 mod gajakesari;
 mod registry;
 
-pub use registry::{detect_yogas, all_yoga_keys};
+pub use registry::{all_yoga_keys, detect_yogas};
 
 /// A single detected yoga (or absence thereof at low strength).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -93,12 +93,14 @@ pub trait Yoga: Send + Sync {
 
 /// Rashi distance from `from` to `to`, counting `from` itself as 1
 /// (Vedic convention). Returns 1..=12.
+#[allow(dead_code)]
 pub(crate) fn rashi_distance(from: Rashi, to: Rashi) -> u8 {
     let a = rashi_index(from) as i16;
     let b = rashi_index(to) as i16;
     ((b - a).rem_euclid(12) + 1) as u8
 }
 
+#[allow(dead_code)]
 pub(crate) fn rashi_index(r: Rashi) -> u8 {
     match r {
         Rashi::Mesha => 0,

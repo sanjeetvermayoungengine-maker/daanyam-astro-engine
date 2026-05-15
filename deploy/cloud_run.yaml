@@ -1,0 +1,57 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: astro-engine
+  annotations:
+    run.googleapis.com/launch-stage: GA
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "1"
+        autoscaling.knative.dev/maxScale: "10"
+        run.googleapis.com/execution-environment: gen2
+    spec:
+      containerConcurrency: 40
+      timeoutSeconds: 60
+      containers:
+        - image: IMAGE_URI_PLACEHOLDER
+          ports:
+            - name: http1
+              containerPort: 3000
+          env:
+            - name: HOST
+              value: 0.0.0.0
+            - name: ASTRO_ENGINE_BACKEND
+              value: de440
+            - name: ASTRO_BACKEND
+              value: de440
+            - name: KERNEL_GCS_URI
+              value: gs://daanyam-astroengine-kernels/de440.bsp
+            - name: ASTRO_EPHE_PATH
+              value: gs://daanyam-astroengine-kernels/de440.bsp
+            - name: ASTRO_EPHE_CACHE_DIR
+              value: /tmp/ephe
+            - name: ENVIRONMENT
+              value: production
+            - name: RUST_LOG
+              value: info
+            # METRICS_TOKEN: set via Secret Manager for GET /metrics (see docs/deploy.md).
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          startupProbe:
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 12
+            httpGet:
+              path: /health
+              port: 3000
+          livenessProbe:
+            timeoutSeconds: 5
+            periodSeconds: 20
+            failureThreshold: 3
+            httpGet:
+              path: /health
+              port: 3000

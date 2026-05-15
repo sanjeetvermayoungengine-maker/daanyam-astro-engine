@@ -34,7 +34,8 @@ if [[ -z "${SERVICE_URL}" ]]; then
   exit 1
 fi
 
-UPTIME_DISPLAY_NAME="${UPTIME_DISPLAY_NAME:-${SERVICE_NAME} health}"
+UPTIME_DISPLAY_NAME="${UPTIME_DISPLAY_NAME:-${SERVICE_NAME} health (multi-region)}"
+UPTIME_REGIONS="${UPTIME_REGIONS:-asia-southeast1,usa-iowa,europe-west1}"
 UPTIME_POLICY_DISPLAY_NAME="${UPTIME_POLICY_DISPLAY_NAME:-${SERVICE_NAME} uptime failure}"
 ERROR_POLICY_DISPLAY_NAME="${ERROR_POLICY_DISPLAY_NAME:-${SERVICE_NAME} 5xx count}"
 LATENCY_POLICY_DISPLAY_NAME="${LATENCY_POLICY_DISPLAY_NAME:-${SERVICE_NAME} p95 latency}"
@@ -54,6 +55,22 @@ UPTIME_CHECK_NAME="$(gcloud monitoring uptime list-configs \
 if [[ -z "${UPTIME_CHECK_NAME}" ]]; then
   echo "missing uptime check: ${UPTIME_DISPLAY_NAME}" >&2
   exit 1
+fi
+
+echo "Verifying multi-region uptime probe regions"
+UPTIME_REGIONS_ACTUAL="$(gcloud monitoring uptime describe "${UPTIME_CHECK_NAME}" \
+  --project "${PROJECT_ID}" \
+  --format='value(selectedRegions)' 2>/dev/null || true)"
+if [[ -z "${UPTIME_REGIONS_ACTUAL}" ]]; then
+  echo "warning: could not read uptime check regions; expected ${UPTIME_REGIONS}" >&2
+else
+  for region in ${UPTIME_REGIONS//,/ }; do
+    if [[ "${UPTIME_REGIONS_ACTUAL}" != *"${region}"* ]]; then
+      echo "uptime check missing region ${region} (have: ${UPTIME_REGIONS_ACTUAL})" >&2
+      exit 1
+    fi
+  done
+  echo "- regions: ${UPTIME_REGIONS_ACTUAL}"
 fi
 
 echo "Checking alert policies"

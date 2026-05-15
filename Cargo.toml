@@ -22,6 +22,8 @@ axum = "0.7"
 chrono = { version = "0.4", features = ["serde"] }
 chrono-tz = "0.10"
 criterion = { version = "0.5", default-features = false }
+metrics = "0.24"
+metrics-exporter-prometheus = "0.16"
 napi = { version = "2", default-features = false, features = ["napi8"] }
 napi-derive = "2"
 percent-encoding = "2"
@@ -35,6 +37,7 @@ tower = "0.5"
 tower-http = { version = "0.6", features = ["trace"] }
 uuid = { version = "1", features = ["v4"] }
 wasm-bindgen = "0.2"
+proptest = "1"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

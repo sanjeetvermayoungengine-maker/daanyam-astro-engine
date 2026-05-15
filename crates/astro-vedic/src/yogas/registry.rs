@@ -18,15 +18,9 @@ pub fn all_yoga_keys() -> Vec<&'static str> {
 /// Run every detector against the chart facts. Returns only the detected
 /// yogas (None results are dropped). Order is stable across requests.
 pub fn detect_yogas(facts: &YogaChartFacts) -> Vec<DetectedYoga> {
-    let detectors: Vec<Box<dyn Yoga>> = vec![
-        Box::new(Gajakesari),
-        Box::new(ChandraMangal),
-    ];
+    let detectors: Vec<Box<dyn Yoga>> = vec![Box::new(Gajakesari), Box::new(ChandraMangal)];
 
-    detectors
-        .into_iter()
-        .filter_map(|d| d.detect(facts))
-        .collect()
+    detectors.into_iter().filter_map(|d| d.detect(facts)).collect()
 }
 
 #[cfg(test)]

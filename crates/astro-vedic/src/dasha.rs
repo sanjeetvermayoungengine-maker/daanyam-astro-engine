@@ -143,11 +143,7 @@ pub fn vimshottari_timeline(
             } else {
                 antar_cursor + Duration::days(subperiod_duration_days(parent_days, YEARS[idx]))
             };
-            antardashas.push(DashaPeriod {
-                lord: ORDER[idx],
-                start: antar_cursor,
-                end: antar_end,
-            });
+            antardashas.push(DashaPeriod { lord: ORDER[idx], start: antar_cursor, end: antar_end });
             antar_cursor = antar_end;
         }
     }
@@ -179,11 +175,7 @@ pub fn vimshottari_timeline(
         pratyantar_cursor = pratyantar_end;
     }
 
-    let timeline = VimshottariTimeline {
-        mahadashas,
-        antardashas,
-        current_antar_pratyantars,
-    };
+    let timeline = VimshottariTimeline { mahadashas, antardashas, current_antar_pratyantars };
 
     (current, timeline)
 }
@@ -296,8 +288,7 @@ mod tests {
     fn timeline_has_nine_mahadashas_in_birth_order() {
         let birth_time = Utc.with_ymd_and_hms(2000, 1, 1, 12, 0, 0).unwrap();
         let as_of = Utc.with_ymd_and_hms(2005, 1, 1, 12, 0, 0).unwrap();
-        let (_current, timeline) =
-            vimshottari_timeline(99.586_412_769_677_72, birth_time, as_of);
+        let (_current, timeline) = vimshottari_timeline(99.586_412_769_677_72, birth_time, as_of);
 
         assert_eq!(timeline.mahadashas.len(), 9);
         // Mahas must be contiguous in time.
@@ -337,19 +328,10 @@ mod tests {
 
         assert_eq!(timeline.current_antar_pratyantars.len(), 9);
         // First Pratyantar is the Antar lord itself.
-        assert_eq!(
-            timeline.current_antar_pratyantars.first().unwrap().lord,
-            current.antar.lord
-        );
+        assert_eq!(timeline.current_antar_pratyantars.first().unwrap().lord, current.antar.lord);
         // Pratyantars must tile the current Antar exactly.
-        assert_eq!(
-            timeline.current_antar_pratyantars.first().unwrap().start,
-            current.antar.start
-        );
-        assert_eq!(
-            timeline.current_antar_pratyantars.last().unwrap().end,
-            current.antar.end
-        );
+        assert_eq!(timeline.current_antar_pratyantars.first().unwrap().start, current.antar.start);
+        assert_eq!(timeline.current_antar_pratyantars.last().unwrap().end, current.antar.end);
         for pair in timeline.current_antar_pratyantars.windows(2) {
             assert_eq!(pair[0].end, pair[1].start);
         }

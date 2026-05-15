@@ -1,5 +1,21 @@
 # Release Candidate Runbook
 
+## v0.18.0 — Phase 1 close
+
+| Step | Action |
+|------|--------|
+| Version | `ENGINE_SEMANTIC_VERSION = "0.18.0"` in `crates/astro-api/src/lib.rs` |
+| Changelog | [CHANGELOG.md](CHANGELOG.md) `## 0.18.0` |
+| Verify | `export ASTRO_EPHE_PATH=./ephe/de440.bsp && cargo fmt --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace` |
+| OpenAPI | `cargo run -p astro-api --bin write_openapi` → commit `dist/openapi.json` |
+| Tag | `git tag -a v0.18.0 -m "Phase 1 close"` |
+| Push tag | `git push origin v0.18.0` — triggers [.github/workflows/deploy.yml](.github/workflows/deploy.yml) |
+| Smoke | `curl -sS https://<cloud-run>/provenance \| jq` — expect extended manifest + `Cache-Control` |
+
+Docker build args (optional): `GIT_COMMIT`, `BUILD_DATE` (RFC3339 UTC) passed at image build for `/provenance` metadata.
+
+Evidence: [docs/runbooks/phase1-checklist-evidence.md](docs/runbooks/phase1-checklist-evidence.md). Retrospective: [docs/retros/phase1.md](docs/retros/phase1.md).
+
 ## Local API run
 
 1. Ensure the Rust toolchain is installed and available on `PATH`.

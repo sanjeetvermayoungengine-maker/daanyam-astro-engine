@@ -15,6 +15,7 @@ Honest status for Phase 1 engineering close. Update checkboxes when evidence is 
 | Horizons station CI | ☑ | [.github/workflows/horizons.yml](../../.github/workflows/horizons.yml), [tests/golden/horizons_stations/](../../tests/golden/horizons_stations/) |
 | Retrograde motion contract | ☑ | [crates/astro-core/src/motion.rs](../../crates/astro-core/src/motion.rs), `retrograde_motion_proptest` |
 | Rich `/provenance` manifest | ☑ | `GET /provenance`, `ENGINE_SEMANTIC_VERSION = 0.18.0` |
+| Release merged + tagged | ☑ | [PR #3](https://github.com/sanjeetvermayoungengine-maker/daanyam-astro-engine/pull/3) merged; tag `v0.18.0` pushed 2026-05-15 |
 | p95 load baseline (W2) | ☐ TBD | Run `./scripts/load/baseline-chart-sidereal.sh`, paste results into [docs/perf/baseline-w2.md](../perf/baseline-w2.md) |
 | p95 load baseline (W4) | ☐ TBD | After min-instances deploy, run same script; paste into [docs/perf/baseline-w4.md](../perf/baseline-w4.md) |
 

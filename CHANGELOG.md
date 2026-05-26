@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.19.0
+
+### Added
+
+- **Yogas:** `detect_yogas` wired into `POST /chart/sidereal` via `include_yogas` (defaults to on when `compact` is false). Tier-1 and Pancha Mahapurusha detectors (15 total) in `astro-vedic`.
+- **Panchang:** `POST /panchang/daily` and `POST /panchang/batch` (up to 366 dates) — tithi, nakshatra, yoga, karana, vara, sunrise/sunset, Rahu Kaal, Abhijit.
+- **Yogas API:** `POST /analysis/yogas` for pre-computed graha positions.
+
+### Changed
+
+- `ENGINE_SEMANTIC_VERSION` → `0.19.0`.
+
+### Migration note
+
+Clients may pass `include_yogas: false` on `/chart/sidereal` to omit `extensions.yogas`. Panchang endpoints are additive; no breaking changes to existing chart/dasha routes.
+
 ## 0.18.0
 
 ### Added

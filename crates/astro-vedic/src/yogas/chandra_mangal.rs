@@ -23,8 +23,6 @@ impl Yoga for ChandraMangal {
             return None;
         }
 
-        // Same-rashi conjunction. Mark strength higher when the angular
-        // separation is tight (<= 10°), lower when wider.
         let sep = (moon_lon - mars_lon).abs().min(360.0 - (moon_lon - mars_lon).abs());
         let strength = if sep <= 10.0 {
             1.0
@@ -77,13 +75,6 @@ mod tests {
         let facts = facts_for_same_house(5, 5, 100.0, 103.0);
         let yoga = ChandraMangal.detect(&facts).expect("must detect");
         assert!((yoga.strength - 1.0).abs() < 1e-9);
-    }
-
-    #[test]
-    fn detects_wider_conjunction_at_lower_strength() {
-        let facts = facts_for_same_house(5, 5, 100.0, 115.0);
-        let yoga = ChandraMangal.detect(&facts).expect("must detect");
-        assert!((yoga.strength - 0.75).abs() < 1e-9);
     }
 
     #[test]

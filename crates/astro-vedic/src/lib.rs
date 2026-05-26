@@ -1,11 +1,13 @@
 mod ayanamsa;
 mod dasha;
+mod panchang;
 mod sidereal;
 mod vargas;
 mod yogas;
 
 pub use ayanamsa::*;
 pub use dasha::*;
+pub use panchang::*;
 pub use sidereal::*;
 pub use vargas::*;
 pub use yogas::{

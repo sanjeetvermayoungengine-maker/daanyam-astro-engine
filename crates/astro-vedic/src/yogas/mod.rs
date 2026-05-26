@@ -17,9 +17,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::Rashi;
 
+mod anapha;
+mod budhaditya;
 mod chandra_mangal;
+mod dhana;
+mod dignity;
 mod gajakesari;
+mod kemadruma;
+mod mahapurusha;
+mod neecha_bhanga;
+mod raja;
 mod registry;
+mod sunapha;
+mod vipreet_raja;
 
 pub use registry::{all_yoga_keys, detect_yogas};
 

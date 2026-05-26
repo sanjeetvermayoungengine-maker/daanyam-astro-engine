@@ -1,24 +1,60 @@
 //! Yoga registry — collects every implemented yoga and runs them in a
 //! stable order so API responses are deterministic.
 
-use super::{chandra_mangal::ChandraMangal, gajakesari::Gajakesari};
+use super::anapha::Anapha;
+use super::budhaditya::Budhaditya;
+use super::chandra_mangal::ChandraMangal;
+use super::dhana::Dhana;
+use super::gajakesari::Gajakesari;
+use super::kemadruma::Kemadruma;
+use super::mahapurusha::{Bhadra, Hamsa, Malavya, Ruchaka, Shasha};
+use super::neecha_bhanga::NeechaBhanga;
+use super::raja::Raja;
+use super::sunapha::Sunapha;
+use super::vipreet_raja::VipreetRaja;
 use super::{DetectedYoga, Yoga, YogaChartFacts};
 
 /// Stable list of all yoga keys recognised by this engine version.
-/// Used in the OpenAPI schema and for client-side filter/sort.
 pub fn all_yoga_keys() -> Vec<&'static str> {
     vec![
-        Gajakesari.key(),
-        ChandraMangal.key(),
-        // 28+ more yoga keys go here as detectors are added — see
-        // docs/engine/yogas-roadmap.md for the priority-ordered list.
+        "gajakesari",
+        "chandra_mangal",
+        "budhaditya",
+        "neecha_bhanga",
+        "vipreet_raja",
+        "dhana",
+        "raja",
+        "kemadruma",
+        "sunapha",
+        "anapha",
+        "ruchaka",
+        "bhadra",
+        "hamsa",
+        "malavya",
+        "shasha",
     ]
 }
 
 /// Run every detector against the chart facts. Returns only the detected
 /// yogas (None results are dropped). Order is stable across requests.
 pub fn detect_yogas(facts: &YogaChartFacts) -> Vec<DetectedYoga> {
-    let detectors: Vec<Box<dyn Yoga>> = vec![Box::new(Gajakesari), Box::new(ChandraMangal)];
+    let detectors: Vec<Box<dyn Yoga>> = vec![
+        Box::new(Gajakesari),
+        Box::new(ChandraMangal),
+        Box::new(Budhaditya),
+        Box::new(NeechaBhanga),
+        Box::new(VipreetRaja),
+        Box::new(Dhana),
+        Box::new(Raja),
+        Box::new(Kemadruma),
+        Box::new(Sunapha),
+        Box::new(Anapha),
+        Box::new(Ruchaka),
+        Box::new(Bhadra),
+        Box::new(Hamsa),
+        Box::new(Malavya),
+        Box::new(Shasha),
+    ];
 
     detectors.into_iter().filter_map(|d| d.detect(facts)).collect()
 }
@@ -47,7 +83,6 @@ mod tests {
             },
         };
         let yogas = detect_yogas(&facts);
-        // Moon in 1, Jupiter in 7 → Gajakesari; Moon+Mars in same house → Chandra-Mangal.
         let keys: Vec<&str> = yogas.iter().map(|y| y.key.as_str()).collect();
         assert!(keys.contains(&"gajakesari"));
         assert!(keys.contains(&"chandra_mangal"));

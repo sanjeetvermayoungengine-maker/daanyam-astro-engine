@@ -1,7 +1,9 @@
 mod drekkana;
+mod divisional;
 mod navamsa;
 
 pub use drekkana::*;
+pub use divisional::*;
 pub use navamsa::*;
 
 use crate::Rashi;

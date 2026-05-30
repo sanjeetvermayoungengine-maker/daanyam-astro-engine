@@ -15,7 +15,8 @@ use astro_core::{
     GeolocationInput, HouseSystem, InMemoryBackend, PositionResult, ResultMetadata,
 };
 use astro_vedic::{
-    compute_panchang_day, detect_yogas, drekkana_sign, lagna_position_from_sidereal_longitude,
+    compute_panchang_day, dashamsha_sign, detect_yogas, drekkana_sign, dwadashamsha_sign,
+    lagna_position_from_sidereal_longitude,
     moon_sidereal_division_from_tropical, navamsa_sign, sidereal_division, sidereal_longitude_deg,
     vimshottari_dasha, vimshottari_dasha_at, vimshottari_timeline,
     whole_sign_houses_from_sidereal_ascendant, DetectedYoga, LagnaPosition, Nakshatra,
@@ -278,6 +279,13 @@ pub struct SiderealChartRequest {
     pub include_yogas: Option<bool>,
 }
 
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct VargaLagnas {
+    pub d9: Rashi,
+    pub d10: Rashi,
+    pub d12: Rashi,
+}
+
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct SiderealChartPayload {
     pub schema_version: String,
@@ -285,6 +293,8 @@ pub struct SiderealChartPayload {
     pub summary: ChartSummary,
     pub grahas: Vec<ChartGrahaPositionResult>,
     pub lagna: LagnaPosition,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub varga_lagnas: Option<VargaLagnas>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub houses: Option<Vec<WholeSignHouse>>,
     pub house_system: HouseSystem,
@@ -1223,6 +1233,11 @@ async fn sidereal_chart(
         placement_table: chart_placement_table(&grahas),
         motion: chart_motion_summary(&grahas),
     };
+    let varga_lagnas = (!compact).then(|| VargaLagnas {
+        d9: navamsa_sign(lagna_sidereal_longitude_deg),
+        d10: dashamsha_sign(lagna_sidereal_longitude_deg),
+        d12: dwadashamsha_sign(lagna_sidereal_longitude_deg),
+    });
 
     Ok(Json(ComputationResult {
         data: SiderealChartPayload {
@@ -1231,6 +1246,7 @@ async fn sidereal_chart(
             summary,
             grahas,
             lagna,
+            varga_lagnas,
             houses: (!compact).then_some(houses),
             house_system: config.house_system,
             moon_sidereal_longitude_deg,

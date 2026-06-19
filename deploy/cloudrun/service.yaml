@@ -33,6 +33,9 @@ spec:
               value: production
             - name: RUST_LOG
               value: info
+            # Injected at deploy time from GitHub Actions secret ASTRO_VALID_API_KEYS
+            - name: VALID_API_KEYS
+              value: "__VALID_API_KEYS__"
           resources:
             limits:
               cpu: "1"

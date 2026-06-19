@@ -10,8 +10,8 @@
     "compact": true,
     "projection": "sidereal_only"
   },
-  "expected_lagna_sidereal_longitude_deg": 275.1573701670353,
-  "expected_lagna_rashi": "makara",
+  "expected_lagna_sidereal_longitude_deg": 95.1573701670353,
+  "expected_lagna_rashi": "cancer",
   "tolerance_deg": 1e-6,
-  "notes": "Pinned with DE440 (ASTRO_BACKEND=de440). Delhi 1990-05-17T04:30:00Z; same body as scripts/load/baseline-chart-sidereal.sh delhi fixture."
+  "notes": "Delhi 1990-05-17T04:30:00Z, DE440. Corrected 2026-06: prior expectation (275.157, makara) was the DESCENDANT from the flipped ascendant bug. Cross-checked vs Swiss Ephemeris: sidereal lagna 95.167 deg (Cancer/karka)."
 }

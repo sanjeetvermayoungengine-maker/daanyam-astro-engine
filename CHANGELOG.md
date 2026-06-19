@@ -2,6 +2,17 @@
 
 ## 0.19.0
 
+### Fixed
+
+- **Ascendant 180° flip (critical):** `ascendant_longitude_deg` negated only the
+  `atan2` numerator, returning the *descendant*, so every sidereal chart's lagna —
+  and all whole-sign houses — came out exactly 180° off (e.g. Cancer rendered as
+  Capricorn). Shipped on paid Janma Patrika order `pat_93552de3…`. Now uses the
+  canonical formula (both `atan2` args negated), verified against Swiss Ephemeris
+  to <0.01° incl. southern hemisphere. Adds an eastern-horizon invariant in
+  `houses()` and Swiss-Ephemeris-pinned regression tests; corrects the
+  `delhi-1990-chart.json` golden fixture that had been pinned to the buggy output.
+
 ### Added
 
 - **Yogas:** `detect_yogas` wired into `POST /chart/sidereal` via `include_yogas` (defaults to on when `compact` is false). Tier-1 and Pancha Mahapurusha detectors (15 total) in `astro-vedic`.

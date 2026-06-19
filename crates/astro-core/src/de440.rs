@@ -523,6 +523,21 @@ impl EphemerisBackend for De440Backend {
         let local_sidereal_time_deg = local_mean_sidereal_time_deg(jd, lon_deg);
         let ascendant_deg =
             ascendant_longitude_deg(local_sidereal_time_deg, lat_deg, obliquity_deg);
+        let midheaven_deg = midheaven_longitude_deg(local_sidereal_time_deg, obliquity_deg);
+
+        // Correctness invariant: the ascendant rises in the east and is always
+        // 0–180° of ecliptic longitude ahead of the MC. A violation means the
+        // rising point was computed as its opposite (the descendant) — the exact
+        // class of bug that shipped Capricorn lagnas as "Cancer". Fail loud in
+        // CI/debug before any chart is built on a flipped ascendant.
+        debug_assert!(
+            {
+                let delta = normalize_degrees(ascendant_deg - midheaven_deg);
+                delta > 0.0 && delta < 180.0
+            },
+            "ascendant must rise east of the MC (asc={ascendant_deg:.4}°, mc={midheaven_deg:.4}°)"
+        );
+
         let first_house_cusp_deg = (ascendant_deg / 30.0).floor() * 30.0;
 
         Ok(HouseSet {
@@ -531,7 +546,7 @@ impl EphemerisBackend for De440Backend {
                 .map(|offset| normalize_degrees(first_house_cusp_deg + f64::from(offset) * 30.0))
                 .collect(),
             ascendant_deg,
-            midheaven_deg: midheaven_longitude_deg(local_sidereal_time_deg, obliquity_deg),
+            midheaven_deg,
         })
     }
 }
@@ -740,10 +755,17 @@ fn ascendant_longitude_deg(
     let obliquity_rad = obliquity_deg.to_radians();
 
     normalize_degrees(
-        (-local_sidereal_time_rad.cos())
+        // Ecliptic longitude of the rising point. Canonical ascendant formula:
+        //   atan2( cos(LST), -(sin(ε)·tan(φ) + cos(ε)·sin(LST)) )
+        // Both atan2 arguments are negated relative to the buggy form that
+        // negated only the numerator: atan2(-y, x) returns the DESCENDANT, so
+        // every lagna came out exactly 180° off (Cancer rendered as Capricorn).
+        // Verified against Swiss Ephemeris.
+        local_sidereal_time_rad
+            .cos()
             .atan2(
-                obliquity_rad.sin() * latitude_rad.tan()
-                    + obliquity_rad.cos() * local_sidereal_time_rad.sin(),
+                -(obliquity_rad.sin() * latitude_rad.tan()
+                    + obliquity_rad.cos() * local_sidereal_time_rad.sin()),
             )
             .to_degrees(),
     )
@@ -1245,5 +1267,46 @@ mod tests {
         let path = de440_kernel::require_de440_kernel()?;
 
         Some(De440Backend::from_path(path).expect("DE440 backend must load for tests"))
+    }
+}
+
+
+#[cfg(test)]
+mod ascendant_formula_tests {
+    use super::*;
+
+    // Reference ascendants from Swiss Ephemeris (independent source), tropical.
+    // (LST_deg, lat_deg, obliquity_deg, expected_tropical_ascendant_deg)
+    const CASES: &[(f64, f64, f64, f64)] = &[
+        (19.325467, 28.6139, 23.440543, 118.8895),   // Delhi  1990-05-17 04:30Z -> Cancer
+        (14.487179, 32.73528, 23.443382, 116.6206),  // Jammu  1968-07-18 00:15Z -> Cancer (order pat_93552d…)
+        (71.669918, -33.8688, 23.439291, 152.4889),  // Sydney 2000-01-01 12:00Z (southern hemisphere)
+    ];
+
+    #[test]
+    fn ascendant_matches_swiss_ephemeris_not_descendant() {
+        for &(lst, lat, eps, expected) in CASES {
+            let asc = ascendant_longitude_deg(lst, lat, eps);
+            let diff = (asc - expected).rem_euclid(360.0);
+            let off = diff.min(360.0 - diff);
+            assert!(
+                off < 0.5,
+                "asc {asc:.4}° != reference {expected:.4}° (off {off:.4}°); \
+                 a ~180° miss means the descendant is being returned"
+            );
+        }
+    }
+
+    #[test]
+    fn ascendant_rises_east_of_midheaven() {
+        for &(lst, lat, eps, _) in CASES {
+            let asc = ascendant_longitude_deg(lst, lat, eps);
+            let mc = midheaven_longitude_deg(lst, eps);
+            let delta = normalize_degrees(asc - mc);
+            assert!(
+                delta > 0.0 && delta < 180.0,
+                "ascendant must be 0-180 deg ahead of MC (asc={asc:.4}, mc={mc:.4}, delta={delta:.4})"
+            );
+        }
     }
 }

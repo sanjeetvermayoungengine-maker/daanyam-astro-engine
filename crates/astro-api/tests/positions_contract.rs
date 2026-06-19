@@ -598,7 +598,37 @@ async fn sidereal_chart_contract_includes_chart_metadata() {
         json["data"]["schema_version"].as_str(),
         Some(astro_api::CHART_SIDEREAL_SCHEMA_VERSION)
     );
-    assert_eq!(json["data"]["extensions"], serde_json::json!({}));
+    assert_eq!(
+        json["data"]["extensions"],
+        serde_json::json!({
+            "yogas": [
+                {
+                    "houses_involved": [5, 2],
+                    "key": "gajakesari",
+                    "name": "Gajakesari Yoga",
+                    "planets_involved": ["Moon", "Jupiter"],
+                    "strength": 1.0,
+                    "voice_line": "Moon and Jupiter sit in mutual kendra — the chart asks you to speak from a steady inner ground; the world tends to listen."
+                },
+                {
+                    "houses_involved": [12, 12],
+                    "key": "vipreet_raja",
+                    "name": "Vipreet Raja Yoga",
+                    "planets_involved": ["Saturn"],
+                    "strength": 0.8,
+                    "voice_line": "A dusthana lord sits in adversity and turns it into quiet advantage — gains through reversal."
+                },
+                {
+                    "houses_involved": [5, 6],
+                    "key": "sunapha",
+                    "name": "Sunapha Yoga",
+                    "planets_involved": ["Moon"],
+                    "strength": 0.85,
+                    "voice_line": "Planets flank Moon from the 2nd — self-made prosperity is emphasised when you act on your own initiative."
+                }
+            ]
+        })
+    );
     assert!(json["data"]["lagna"]["sidereal_longitude_deg"].is_number());
     assert!(json["data"]["lagna"]["rashi"].is_string());
     let houses = json["data"]["houses"].as_array().expect("houses array must exist");

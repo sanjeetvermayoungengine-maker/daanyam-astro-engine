@@ -16,12 +16,11 @@ use astro_core::{
 };
 use astro_vedic::{
     compute_panchang_day, dashamsha_sign, detect_yogas, drekkana_sign, dwadashamsha_sign,
-    lagna_position_from_sidereal_longitude,
-    moon_sidereal_division_from_tropical, navamsa_sign, sidereal_division, sidereal_longitude_deg,
-    vimshottari_dasha, vimshottari_dasha_at, vimshottari_timeline,
-    whole_sign_houses_from_sidereal_ascendant, DetectedYoga, LagnaPosition, Nakshatra,
-    PanchangDay, PlanetHouses, PlanetLongitudes, Rashi, SiderealDivision, VimshottariDasha,
-    VimshottariTimeline, WholeSignHouse, YogaChartFacts, LAHIRI_ALGO_ID,
+    lagna_position_from_sidereal_longitude, moon_sidereal_division_from_tropical, navamsa_sign,
+    sidereal_division, sidereal_longitude_deg, vimshottari_dasha, vimshottari_dasha_at,
+    vimshottari_timeline, whole_sign_houses_from_sidereal_ascendant, DetectedYoga, LagnaPosition,
+    Nakshatra, PanchangDay, PlanetHouses, PlanetLongitudes, Rashi, SiderealDivision,
+    VimshottariDasha, VimshottariTimeline, WholeSignHouse, YogaChartFacts, LAHIRI_ALGO_ID,
 };
 use axum::{
     body::{to_bytes, Body},
@@ -38,7 +37,8 @@ use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-pub const ENGINE_SEMANTIC_VERSION: &str = "0.19.0";
+/// Single source of truth: the workspace `[workspace.package] version` in the root Cargo.toml.
+pub const ENGINE_SEMANTIC_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const PANCHANG_SCHEMA_VERSION: &str = "panchang_v1";
 pub const NODE_POLICY_ID: &str = "true_node_mean_ecliptic_of_date";
 pub const VALIDATION_BASELINE: &str = "JPL Horizons";
@@ -1213,10 +1213,8 @@ async fn sidereal_chart(
     if include_yogas {
         let yoga_facts = build_yoga_chart_facts(lagna.rashi, &grahas);
         let yogas = detect_yogas(&yoga_facts);
-        extensions.insert(
-            "yogas".to_owned(),
-            serde_json::to_value(yogas).expect("yogas must serialize"),
-        );
+        extensions
+            .insert("yogas".to_owned(), serde_json::to_value(yogas).expect("yogas must serialize"));
     }
     let grahas = grahas
         .into_iter()
@@ -1267,13 +1265,16 @@ async fn panchang_daily(
     State(state): State<ApiState>,
     Json(request): Json<PanchangRequest>,
 ) -> Result<Json<ComputationResult<PanchangPayload>>, (StatusCode, Json<ErrorPayload>)> {
-    let panchang = compute_panchang_for_request(&state, &request.datetime, request.geo, request.ayanamsa, request.gravitational_deflection)
-        .map_err(map_sidereal_error)?;
+    let panchang = compute_panchang_for_request(
+        &state,
+        &request.datetime,
+        request.geo,
+        request.ayanamsa,
+        request.gravitational_deflection,
+    )
+    .map_err(map_sidereal_error)?;
     Ok(Json(ComputationResult {
-        data: PanchangPayload {
-            schema_version: PANCHANG_SCHEMA_VERSION.to_owned(),
-            panchang,
-        },
+        data: PanchangPayload { schema_version: PANCHANG_SCHEMA_VERSION.to_owned(), panchang },
         metadata: metadata(&state),
     }))
 }
@@ -1303,10 +1304,7 @@ async fn panchang_batch(
     }
 
     Ok(Json(ComputationResult {
-        data: PanchangBatchPayload {
-            schema_version: PANCHANG_SCHEMA_VERSION.to_owned(),
-            panchang,
-        },
+        data: PanchangBatchPayload { schema_version: PANCHANG_SCHEMA_VERSION.to_owned(), panchang },
         metadata: metadata(&state),
     }))
 }
@@ -1318,10 +1316,7 @@ async fn analysis_yogas(
     let facts = yoga_facts_from_inputs(request.lagna_rashi, &request.grahas);
     let yogas = detect_yogas(&facts);
     Json(ComputationResult {
-        data: YogasAnalysisPayload {
-            schema_version: "yogas_v1".to_owned(),
-            yogas,
-        },
+        data: YogasAnalysisPayload { schema_version: "yogas_v1".to_owned(), yogas },
         metadata: metadata(&state),
     })
 }
@@ -1343,20 +1338,9 @@ fn compute_panchang_for_request(
         gravitational_deflection,
         ChartProjection::SiderealOnly,
     )?;
-    let sun = positions
-        .iter()
-        .find(|p| p.body == CelestialBody::Sun)
-        .expect("sun position");
-    let moon = positions
-        .iter()
-        .find(|p| p.body == CelestialBody::Moon)
-        .expect("moon position");
-    Ok(compute_panchang_day(
-        utc,
-        &geo,
-        moon.sidereal_longitude_deg,
-        sun.sidereal_longitude_deg,
-    ))
+    let sun = positions.iter().find(|p| p.body == CelestialBody::Sun).expect("sun position");
+    let moon = positions.iter().find(|p| p.body == CelestialBody::Moon).expect("moon position");
+    Ok(compute_panchang_day(utc, &geo, moon.sidereal_longitude_deg, sun.sidereal_longitude_deg))
 }
 
 fn build_yoga_chart_facts(
@@ -1411,6 +1395,8 @@ fn build_yoga_chart_facts(
                 facts.planet_longitudes.ketu = Some(position.sidereal_longitude_deg);
                 facts.planet_houses.ketu = Some(house);
             }
+            // Intentionally non-exhaustive: ADR 0004 outer planets will add variants.
+            #[allow(unreachable_patterns)]
             _ => {}
         }
     }
@@ -1462,6 +1448,8 @@ fn yoga_facts_from_inputs(lagna_rashi: Rashi, grahas: &[YogaGrahaInput]) -> Yoga
                 facts.planet_longitudes.ketu = Some(graha.sidereal_longitude_deg);
                 facts.planet_houses.ketu = Some(graha.whole_sign_house);
             }
+            // Intentionally non-exhaustive: ADR 0004 outer planets will add variants.
+            #[allow(unreachable_patterns)]
             _ => {}
         }
     }

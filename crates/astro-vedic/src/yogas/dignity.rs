@@ -142,8 +142,7 @@ pub(crate) fn has_planet_in_house(facts: &YogaChartFacts, house: u8, exclude: &[
 }
 
 pub(crate) fn same_sign(a_body: &str, b_body: &str, facts: &YogaChartFacts) -> bool {
-    graha_rashi(facts, a_body) == graha_rashi(facts, b_body)
-        && graha_rashi(facts, a_body).is_some()
+    graha_rashi(facts, a_body) == graha_rashi(facts, b_body) && graha_rashi(facts, a_body).is_some()
 }
 
 pub(crate) fn mutual_kendra_houses(a: u8, b: u8) -> bool {

@@ -21,10 +21,10 @@ We separate transport-schema stability from engine-output stability.
 ### Route families
 
 - `/positions`
-  - stable JSON contract documented in [docs/api_positions.md](/Users/sanjeet/Documents/Playground/docs/api_positions.md)
+  - stable JSON contract documented in [docs/api_positions.md](../api_positions.md)
   - currently governed by additive-only field rules and `engine_semantic_version`
 - `/positions/sidereal`
-  - stable JSON contract documented in [docs/api_positions_sidereal.md](/Users/sanjeet/Documents/Playground/docs/api_positions_sidereal.md)
+  - stable JSON contract documented in [docs/api_positions_sidereal.md](../api_positions_sidereal.md)
   - currently governed by additive-only field rules and `engine_semantic_version`
 - `/chart/sidereal`
   - explicit `schema_version`
@@ -46,7 +46,7 @@ We separate transport-schema stability from engine-output stability.
 
 ### CHANGELOG requirements
 
-Every breaking or output-shifting change must be recorded in [CHANGELOG.md](/Users/sanjeet/Documents/Playground/CHANGELOG.md).
+Every breaking or output-shifting change must be recorded in [CHANGELOG.md](../../CHANGELOG.md).
 
 Required changelog coverage:
 

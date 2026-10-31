@@ -51,7 +51,7 @@ Documented reference approach:
 - Reference family: Swiss Ephemeris Lahiri definition for the zero epoch
 - Precession model used in code: IAU 1976 precession-in-longitude polynomial between the Lahiri zero epoch and the target TDB instant
 
-This implementation is deterministic and auditable rather than table-interpolated. Any future numerical change to Lahiri outputs must bump `engine_semantic_version` and be recorded in [CHANGELOG.md](/Users/sanjeet/Documents/Playground/CHANGELOG.md).
+This implementation is deterministic and auditable rather than table-interpolated. Any future numerical change to Lahiri outputs must bump `engine_semantic_version` and be recorded in [CHANGELOG.md](../CHANGELOG.md).
 
 Sidereal longitude is defined as:
 

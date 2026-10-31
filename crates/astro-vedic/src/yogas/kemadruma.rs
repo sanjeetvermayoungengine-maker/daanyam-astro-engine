@@ -41,11 +41,7 @@ mod tests {
         let facts = YogaChartFacts {
             lagna_rashi: Rashi::Mesha,
             planet_longitudes: PlanetLongitudes::default(),
-            planet_houses: PlanetHouses {
-                moon: Some(5),
-                sun: Some(1),
-                ..Default::default()
-            },
+            planet_houses: PlanetHouses { moon: Some(5), sun: Some(1), ..Default::default() },
         };
         assert!(Kemadruma.detect(&facts).is_some());
     }

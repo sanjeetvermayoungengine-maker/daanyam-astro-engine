@@ -24,9 +24,9 @@ This directory stores source-attributed regression fixtures for the DE440-backed
 
 ## Future planning references
 
-- Topocentric design plan: [docs/topocentric_plan.md](/Users/sanjeet/Documents/Playground/docs/topocentric_plan.md)
-- Topocentric regression scaffold: [tests/regression/topocentric/README.md](/Users/sanjeet/Documents/Playground/tests/regression/topocentric/README.md)
-- Mean-node policy status: [docs/mean_nodes.md](/Users/sanjeet/Documents/Playground/docs/mean_nodes.md)
+- Topocentric design plan: [docs/topocentric_plan.md](../../docs/topocentric_plan.md)
+- Topocentric regression scaffold: [tests/regression/topocentric/README.md](topocentric/README.md)
+- Mean-node policy status: [docs/mean_nodes.md](../../docs/mean_nodes.md)
 
 ## Frame correction note
 

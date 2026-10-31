@@ -41,15 +41,8 @@ const KARANA_REPEATING: [&str; 7] =
     ["Bava", "Balava", "Kaulava", "Taitila", "Gara", "Vanija", "Vishti"];
 const KARANA_FIXED: [&str; 4] = ["Kimstughna", "Shakuni", "Chatushpada", "Naga"];
 
-const VARA_NAMES: [&str; 7] = [
-    "Ravivara",
-    "Somavara",
-    "Mangalavara",
-    "Budhavara",
-    "Guruvara",
-    "Shukravara",
-    "Shanivara",
-];
+const VARA_NAMES: [&str; 7] =
+    ["Ravivara", "Somavara", "Mangalavara", "Budhavara", "Guruvara", "Shukravara", "Shanivara"];
 
 /// Rahu Kaal slot index (1–8) by weekday: Sun=0 … Sat=6.
 const RAHU_KAAL_PART: [u8; 7] = [8, 2, 7, 5, 6, 4, 3];
@@ -196,10 +189,7 @@ fn yoga_from_longitudes(moon_lon: f64, sun_lon: f64) -> YogaInfo {
     }
     let index = (sum / (360.0 / 27.0)).floor() as u8;
     let index = index.min(26);
-    YogaInfo {
-        index,
-        name: YOGA_NAMES[index as usize].to_string(),
-    }
+    YogaInfo { index, name: YOGA_NAMES[index as usize].to_string() }
 }
 
 fn karana_from_tithi(tithi_num: u8) -> String {
@@ -224,11 +214,7 @@ fn vara_for_ist_weekday(utc: DateTime<Utc>) -> VaraInfo {
 }
 
 /// NOAA-style solar times (ported from webapp `muhuratUtils.ts`).
-pub fn solar_times_for_date(
-    date: DateTime<Utc>,
-    lat: f64,
-    lon: f64,
-) -> SolarTimes {
+pub fn solar_times_for_date(date: DateTime<Utc>, lat: f64, lon: f64) -> SolarTimes {
     let jd = julian_day_from_datetime(date);
     let n = jd - 2451545.0 + 0.0008;
     let j_star = n - lon / 360.0;
@@ -240,8 +226,7 @@ pub fn solar_times_for_date(
     let j_transit = 2451545.0 + j_star + 0.0053 * (m.to_radians()).sin()
         - 0.0069 * (2.0 * lambda.to_radians()).sin();
     let sin_dec = (lambda.to_radians()).sin() * (23.4397_f64.to_radians()).sin();
-    let cos_h = ((-0.833_f64.to_radians()).sin()
-        - (lat.to_radians()).sin() * sin_dec)
+    let cos_h = ((-0.833_f64.to_radians()).sin() - (lat.to_radians()).sin() * sin_dec)
         / ((lat.to_radians()).cos() * (sin_dec.asin()).cos());
     let h = cos_h.clamp(-1.0, 1.0).acos().to_degrees();
     let j_rise = j_transit - h / 360.0;
@@ -304,7 +289,8 @@ fn rahu_kaal(solar: &SolarTimes, weekday: u8) -> PanchangTimeWindow {
     let day_ms = (solar.sunset - solar.sunrise).num_milliseconds() as f64;
     let part_ms = day_ms / 8.0;
     let part_index = RAHU_KAAL_PART[weekday as usize] as f64;
-    let start = solar.sunrise + chrono::Duration::milliseconds(((part_index - 1.0) * part_ms) as i64);
+    let start =
+        solar.sunrise + chrono::Duration::milliseconds(((part_index - 1.0) * part_ms) as i64);
     let end = solar.sunrise + chrono::Duration::milliseconds((part_index * part_ms) as i64);
     PanchangTimeWindow {
         start_utc_rfc3339: start.to_rfc3339(),

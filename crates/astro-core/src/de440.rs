@@ -1270,7 +1270,6 @@ mod tests {
     }
 }
 
-
 #[cfg(test)]
 mod ascendant_formula_tests {
     use super::*;
@@ -1278,9 +1277,9 @@ mod ascendant_formula_tests {
     // Reference ascendants from Swiss Ephemeris (independent source), tropical.
     // (LST_deg, lat_deg, obliquity_deg, expected_tropical_ascendant_deg)
     const CASES: &[(f64, f64, f64, f64)] = &[
-        (19.325467, 28.6139, 23.440543, 118.8895),   // Delhi  1990-05-17 04:30Z -> Cancer
-        (14.487179, 32.73528, 23.443382, 116.6206),  // Jammu  1968-07-18 00:15Z -> Cancer (order pat_93552d…)
-        (71.669918, -33.8688, 23.439291, 152.4889),  // Sydney 2000-01-01 12:00Z (southern hemisphere)
+        (19.325467, 28.6139, 23.440543, 118.8895), // Delhi  1990-05-17 04:30Z -> Cancer
+        (14.487179, 32.73528, 23.443382, 116.6206), // Jammu  1968-07-18 00:15Z -> Cancer (order pat_93552d…)
+        (71.669918, -33.8688, 23.439291, 152.4889), // Sydney 2000-01-01 12:00Z (southern hemisphere)
     ];
 
     #[test]

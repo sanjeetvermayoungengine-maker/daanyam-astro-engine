@@ -10,12 +10,12 @@ The engine currently exposes geocentric results only, but the request and metada
 
 ## Proposed decision
 
-The detailed design remains in [docs/topocentric_plan.md](/Users/sanjeet/Documents/Playground/docs/topocentric_plan.md). This ADR records the current policy direction:
+The detailed design remains in [docs/topocentric_plan.md](../topocentric_plan.md). This ADR records the current policy direction:
 
 - topocentric requests will require explicit geolocation input,
 - observer-mode metadata will evolve additively from the current geocentric contract,
 - no silent fallback to approximate observer models will be allowed,
-- regression fixtures will be organized under [tests/regression/topocentric/README.md](/Users/sanjeet/Documents/Playground/tests/regression/topocentric/README.md) before implementation ships.
+- regression fixtures will be organized under [tests/regression/topocentric/README.md](../../tests/regression/topocentric/README.md) before implementation ships.
 
 ## Non-goals for Phase 1
 
@@ -26,5 +26,5 @@ The detailed design remains in [docs/topocentric_plan.md](/Users/sanjeet/Documen
 
 ## References
 
-- [docs/topocentric_plan.md](/Users/sanjeet/Documents/Playground/docs/topocentric_plan.md)
-- [tests/regression/topocentric/README.md](/Users/sanjeet/Documents/Playground/tests/regression/topocentric/README.md)
+- [docs/topocentric_plan.md](../topocentric_plan.md)
+- [tests/regression/topocentric/README.md](../../tests/regression/topocentric/README.md)

@@ -4,8 +4,8 @@ This directory holds stable regression fixtures that back deployment confidence 
 
 Today the golden coverage is split across two layers:
 
-- local fixture files such as [lahiri_moon_nakshatra.json](/Users/sanjeet/Desktop/daanyam-astroengine/tests/golden/lahiri_moon_nakshatra.json), used by crate tests for deterministic sidereal math
-- deployed endpoint verification via [`crates/astro-api/tests/production_contract.rs`](/Users/sanjeet/Desktop/daanyam-astroengine/crates/astro-api/tests/production_contract.rs), which hits a live base URL and asserts the production HTTP contract stays on the DE440-backed path
+- local fixture files such as [lahiri_moon_nakshatra.json](lahiri_moon_nakshatra.json), used by crate tests for deterministic sidereal math
+- deployed endpoint verification via [`crates/astro-api/tests/production_contract.rs`](../../crates/astro-api/tests/production_contract.rs), which hits a live base URL and asserts the production HTTP contract stays on the DE440-backed path
 
 Run the deployed verification suite with:
 

@@ -3,19 +3,25 @@ fn main() {
     println!("cargo:rerun-if-env-changed=GIT_COMMIT");
     println!("cargo:rerun-if-env-changed=BUILD_DATE");
 
-    let git_commit = std::env::var("GIT_COMMIT").unwrap_or_else(|_| {
-        std::process::Command::new("git")
-            .args(["rev-parse", "--short=12", "HEAD"])
-            .output()
-            .ok()
-            .filter(|output| output.status.success())
-            .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string())
-            .filter(|value| !value.is_empty())
-            .unwrap_or_else(|| "unknown".to_string())
-    });
+    let git_commit = std::env::var("GIT_COMMIT")
+        .ok()
+        .filter(|value| !value.trim().is_empty() && value != "unknown")
+        .unwrap_or_else(|| {
+            std::process::Command::new("git")
+                .args(["rev-parse", "--short=12", "HEAD"])
+                .output()
+                .ok()
+                .filter(|output| output.status.success())
+                .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string())
+                .filter(|value| !value.is_empty())
+                .unwrap_or_else(|| "unknown".to_string())
+        });
     println!("cargo:rustc-env=GIT_COMMIT={git_commit}");
 
-    let build_date = std::env::var("BUILD_DATE").unwrap_or_else(|_| utc_rfc3339_now());
+    let build_date = std::env::var("BUILD_DATE")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(utc_rfc3339_now);
     println!("cargo:rustc-env=BUILD_DATE={build_date}");
 }
 

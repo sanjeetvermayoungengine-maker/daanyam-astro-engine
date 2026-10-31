@@ -53,11 +53,11 @@ cargo test --workspace
 cargo bench -p astro-core --no-run
 ```
 
-PR automation lives in [`.github/workflows/ci.yml`](/Users/sanjeet/Desktop/daanyam%20-%20astro%20engine/.github/workflows/ci.yml). Main-branch delivery to GCP Cloud Run lives in [`.github/workflows/deploy.yml`](/Users/sanjeet/Desktop/daanyam%20-%20astro%20engine/.github/workflows/deploy.yml), with [cloudbuild.yaml](/Users/sanjeet/Desktop/daanyam%20-%20astro%20engine/cloudbuild.yaml) as the in-project fallback.
+PR automation lives in [`.github/workflows/ci.yml`](.github/workflows/ci.yml). Main-branch delivery to GCP Cloud Run lives in [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml), with [cloudbuild.yaml](cloudbuild.yaml) as the in-project fallback.
 
 ## Current status
 
-Phase 1 engineering track closes at **v0.18.0**. The HTTP API serves Lahiri sidereal positions, charts, dasha, and a public provenance manifest.
+Current release: **v0.19.0** (Phase 1 closed at v0.18.0; see [CHANGELOG.md](CHANGELOG.md)). The HTTP API serves Lahiri sidereal positions and charts (with yogas), dasha, panchang, and a public provenance manifest. Western tropical output is in progress (see [SPRINT_PLAN.md](SPRINT_PLAN.md), Phase 4).
 
 - **Live provenance:** `GET /provenance` (unauthenticated, `Cache-Control: public, max-age=3600`) — kernel, ayanamsa algorithm, build metadata, validation baseline, supported bodies.
 - **Phase 1 retrospective:** [docs/retros/phase1.md](docs/retros/phase1.md)
@@ -93,15 +93,15 @@ Pipeline stages:
 7. Precess from J2000 to mean equator-of-date.
 8. Rotate into mean ecliptic-of-date and serialize geocentric longitude/latitude.
 
-Regression fixtures in [tests/regression/manifest.json](/Users/sanjeet/Documents/Playground/tests/regression/manifest.json) use official JPL Horizons observer-table quantity `31` values. Earlier placeholder Moon expectations were replaced because they did not match that documented frame definition.
+Regression fixtures in [tests/regression/manifest.json](tests/regression/manifest.json) use official JPL Horizons observer-table quantity `31` values. Earlier placeholder Moon expectations were replaced because they did not match that documented frame definition.
 
-The dedicated sidereal API route documents its JSON contract in [docs/api_positions_sidereal.md](/Users/sanjeet/Documents/Playground/docs/api_positions_sidereal.md). Lahiri provenance and versioning rules are documented in [docs/astronomy.md](/Users/sanjeet/Documents/Playground/docs/astronomy.md) and [CHANGELOG.md](/Users/sanjeet/Documents/Playground/CHANGELOG.md).
-The chart-oriented sidereal contract is documented in [docs/api_chart_sidereal.md](/Users/sanjeet/Documents/Playground/docs/api_chart_sidereal.md).
-Compact mobile sample payloads live in [docs/examples/mobile_chart_compact.json](/Users/sanjeet/Documents/Playground/docs/examples/mobile_chart_compact.json), [docs/examples/mobile_chart_compact_sidereal_only.json](/Users/sanjeet/Documents/Playground/docs/examples/mobile_chart_compact_sidereal_only.json), [docs/examples/mobile_positions_compact.json](/Users/sanjeet/Documents/Playground/docs/examples/mobile_positions_compact.json), and [docs/examples/mobile_positions_sidereal_compact_sidereal_only.json](/Users/sanjeet/Documents/Playground/docs/examples/mobile_positions_sidereal_compact_sidereal_only.json).
+The dedicated sidereal API route documents its JSON contract in [docs/api_positions_sidereal.md](docs/api_positions_sidereal.md). Lahiri provenance and versioning rules are documented in [docs/astronomy.md](docs/astronomy.md) and [CHANGELOG.md](CHANGELOG.md).
+The chart-oriented sidereal contract is documented in [docs/api_chart_sidereal.md](docs/api_chart_sidereal.md).
+Compact mobile sample payloads live in [docs/examples/mobile_chart_compact.json](docs/examples/mobile_chart_compact.json), [docs/examples/mobile_chart_compact_sidereal_only.json](docs/examples/mobile_chart_compact_sidereal_only.json), [docs/examples/mobile_positions_compact.json](docs/examples/mobile_positions_compact.json), and [docs/examples/mobile_positions_sidereal_compact_sidereal_only.json](docs/examples/mobile_positions_sidereal_compact_sidereal_only.json).
 The live OpenAPI 3.1 document is served from `/openapi.json`; interactive docs are at `/docs` (Redoc, same-origin spec). The release artifact is committed at [dist/openapi.json](dist/openapi.json).
-Release candidate local run and packaging steps are documented in [RELEASE.md](/Users/sanjeet/Documents/Playground/RELEASE.md).
-Container and readiness guidance are documented in [docs/deploy.md](/Users/sanjeet/Documents/Playground/docs/deploy.md).
-Cross-route schema governance is documented in [docs/adr/0002-api-schema-versioning.md](/Users/sanjeet/Documents/Playground/docs/adr/0002-api-schema-versioning.md).
-Accepted ADRs are indexed in [docs/adr/README.md](/Users/sanjeet/Documents/Playground/docs/adr/README.md).
+Release candidate local run and packaging steps are documented in [RELEASE.md](RELEASE.md).
+Container and readiness guidance are documented in [docs/deploy.md](docs/deploy.md).
+Cross-route schema governance is documented in [docs/adr/0002-api-schema-versioning.md](docs/adr/0002-api-schema-versioning.md).
+Accepted ADRs are indexed in [docs/adr/README.md](docs/adr/README.md).
 
-For workspace test hygiene, the current DE440 kernel discovery helper remains a lightweight shared test module at [tests/support/de440_kernel.rs](/Users/sanjeet/Documents/Playground/tests/support/de440_kernel.rs) instead of a dedicated `test-support` crate. This keeps the refactor surface small until more shared test-only utilities justify a separate crate.
+For workspace test hygiene, the current DE440 kernel discovery helper remains a lightweight shared test module at [tests/support/de440_kernel.rs](tests/support/de440_kernel.rs) instead of a dedicated `test-support` crate. This keeps the refactor surface small until more shared test-only utilities justify a separate crate.

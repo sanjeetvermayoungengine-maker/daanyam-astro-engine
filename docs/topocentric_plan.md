@@ -55,7 +55,7 @@ tests/regression/topocentric/
   topocentric_observer_mumbai.json
 ```
 
-Source of truth for filenames is [tests/regression/topocentric/README.md](/Users/sanjeet/Documents/Playground/tests/regression/topocentric/README.md).
+Source of truth for filenames is [tests/regression/topocentric/README.md](../tests/regression/topocentric/README.md).
 
 Each future fixture group should include:
 
@@ -68,5 +68,5 @@ Each future fixture group should include:
 
 ## Testing / consistency
 
-- the filename list in this document must match [tests/regression/topocentric/README.md](/Users/sanjeet/Documents/Playground/tests/regression/topocentric/README.md),
-- this parity is enforced by `regression_docs_reference_future_plans` in [crates/astro-core/tests/regression_manifest.rs](/Users/sanjeet/Documents/Playground/crates/astro-core/tests/regression_manifest.rs).
+- the filename list in this document must match [tests/regression/topocentric/README.md](../tests/regression/topocentric/README.md),
+- this parity is enforced by `regression_docs_reference_future_plans` in [crates/astro-core/tests/regression_manifest.rs](../crates/astro-core/tests/regression_manifest.rs).

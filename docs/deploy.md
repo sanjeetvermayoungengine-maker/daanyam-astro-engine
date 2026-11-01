@@ -232,6 +232,15 @@ If GitHub Actions is unavailable, [cloudbuild.yaml](../cloudbuild.yaml) provides
 - Staging: [docs/env.staging.example](env.staging.example)
 - Production: [docs/env.production.example](env.production.example)
 
+## CI access to the DE440 kernel
+
+The `test` and `horizons-regression` CI jobs download `gs://daanyam-ephe/de440.bsp` using the GitHub deploy service account (Workload Identity). That account needs read access to the bucket, otherwise the kernel fetch fails with `storage.objects.get` denied (the DE440 tests must run against the real kernel, so the step is intentionally not optional):
+
+```bash
+gcloud storage buckets add-iam-policy-binding gs://daanyam-ephe \
+  --member "serviceAccount:$GCP_DEPLOY_SERVICE_ACCOUNT" --role roles/storage.objectViewer
+```
+
 ## API keys in Secret Manager (Cloud Run)
 
 `VALID_API_KEYS` is mounted from Secret Manager, never stored in the repo, manifest or CI logs.
@@ -241,6 +250,10 @@ If GitHub Actions is unavailable, [cloudbuild.yaml](../cloudbuild.yaml) provides
 printf '%s' "$NEW_KEYS" | gcloud secrets create astro-valid-api-keys --data-file=- --replication-policy=automatic
 gcloud secrets add-iam-policy-binding astro-valid-api-keys \
   --member "serviceAccount:$CLOUD_RUN_SERVICE_ACCOUNT" --role roles/secretmanager.secretAccessor
+# one-time: let the GitHub deploy SA verify the secret exists (the Deploy workflow's pre-flight check
+# calls secretmanager.secrets.get; secretAccessor does not include it). Metadata only, no secret values.
+gcloud secrets add-iam-policy-binding astro-valid-api-keys \
+  --member "serviceAccount:$GCP_DEPLOY_SERVICE_ACCOUNT" --role roles/secretmanager.viewer
 ```
 
 Rotation: add a new version holding `old,new`, redeploy (or `gcloud run services update --update-secrets`), switch clients to the new key, then add a final version holding only `new`. Secret versions resolve at instance start, so roll a new revision after each version change.

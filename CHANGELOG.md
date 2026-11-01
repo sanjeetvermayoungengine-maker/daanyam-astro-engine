@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **Build hygiene (no engine-output change):** `ENGINE_SEMANTIC_VERSION` is now `env!("CARGO_PKG_VERSION")`; the workspace `version` (0.1.0 -> 0.19.0) is the single source. Side effect: `computation_meta.crate_version` and request-log `engine_version` now report `0.19.0` instead of `0.1.0` (additive-in-spirit metadata correction; shape unchanged).
+- Deploys (`deploy.yml`, `cloudbuild.yaml`) now pass `GIT_COMMIT` / `BUILD_DATE` Docker build args so `GET /provenance` names the running commit instead of `unknown`. `build.rs` treats empty/`unknown` env values as unset.
+- `VALID_API_KEYS` is read from Secret Manager via `secretKeyRef` in `deploy/cloudrun/service.yaml` (secret name: `astro-valid-api-keys`, overridable with repo variable `VALID_API_KEYS_SECRET` / Cloud Build `_VALID_API_KEYS_SECRET`). The `ASTRO_VALID_API_KEYS` GitHub secret and `__VALID_API_KEYS__` sed injection are removed.
+
+### Added
+
+- CI `cargo-audit` job.
+
+### Fixed
+
+- README status line and repository-relative doc links (removed `/Users/...` absolute paths).
+- `clippy -D warnings` failure on `main` (unreachable `_` arms in graha fact extraction; now explicitly allowed pending ADR 0004).
+
 ## 0.19.0
 
 ### Fixed

@@ -17,6 +17,7 @@ env:
   CLOUD_RUN_SERVICE: ${{ vars.CLOUD_RUN_SERVICE || 'astro-engine' }}
   CLOUD_RUN_EPHEMERIS_BUCKET: ${{ vars.CLOUD_RUN_EPHEMERIS_BUCKET || 'daanyam-ephe' }}
   CLOUD_RUN_SERVICE_ACCOUNT: ${{ vars.CLOUD_RUN_SERVICE_ACCOUNT }}
+  VALID_API_KEYS_SECRET: ${{ vars.VALID_API_KEYS_SECRET || 'astro-valid-api-keys' }}
   IMAGE_NAME: astro-api
 
 jobs:
@@ -26,12 +27,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Validate repository configuration
-        env:
-          ASTRO_VALID_API_KEYS: ${{ secrets.ASTRO_VALID_API_KEYS }}
         run: |
           test -n "${GCP_PROJECT_ID}" || { echo "Missing repository variable GCP_PROJECT_ID"; exit 1; }
           test -n "${CLOUD_RUN_SERVICE_ACCOUNT}" || { echo "Missing repository variable CLOUD_RUN_SERVICE_ACCOUNT"; exit 1; }
-          test -n "${ASTRO_VALID_API_KEYS}" || { echo "Missing repository secret ASTRO_VALID_API_KEYS"; exit 1; }
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -52,20 +50,28 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
+      - name: Compute build metadata
+        id: meta
+        run: echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "${GITHUB_OUTPUT}"
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ steps.meta.outputs.date }}
           tags: |
             ${{ steps.image.outputs.uri }}
             ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.IMAGE_NAME }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Verify API-key secret exists in Secret Manager
+        run: gcloud secrets describe "${VALID_API_KEYS_SECRET}" --project "${GCP_PROJECT_ID}" --format='value(name)' >/dev/null
+
       - name: Render Cloud Run service manifest
-        env:
-          ASTRO_VALID_API_KEYS: ${{ secrets.ASTRO_VALID_API_KEYS }}
         run: |
           sed \
             -e "s|__CLOUD_RUN_SERVICE__|${CLOUD_RUN_SERVICE}|g" \
@@ -74,7 +80,7 @@ jobs:
             -e "s|__IMAGE_URI__|${{ steps.image.outputs.uri }}|g" \
             -e "s|__CLOUD_RUN_SERVICE_ACCOUNT__|${CLOUD_RUN_SERVICE_ACCOUNT}|g" \
             -e "s|__CLOUD_RUN_EPHEMERIS_BUCKET__|${CLOUD_RUN_EPHEMERIS_BUCKET}|g" \
-            -e "s|__VALID_API_KEYS__|${ASTRO_VALID_API_KEYS}|g" \
+            -e "s|__VALID_API_KEYS_SECRET__|${VALID_API_KEYS_SECRET}|g" \
             deploy/cloudrun/service.yaml > /tmp/cloudrun-service.yaml
 
       - name: Deploy to Cloud Run

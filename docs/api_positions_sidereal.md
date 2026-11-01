@@ -165,7 +165,7 @@ Compact omission table:
 
 This document describes the `v0.17.x` sidereal response contract.
 
-Cross-route schema governance is defined in [docs/adr/0002-api-schema-versioning.md](/Users/sanjeet/Documents/Playground/docs/adr/0002-api-schema-versioning.md).
+Cross-route schema governance is defined in [docs/adr/0002-api-schema-versioning.md](adr/0002-api-schema-versioning.md).
 
 Breaking changes include:
 

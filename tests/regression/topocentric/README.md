@@ -29,4 +29,4 @@ Required metadata fields per file:
 - body list and UTC timestamps
 - whether the file is a control baseline or a true topocentric observer case
 
-See [docs/topocentric_plan.md](/Users/sanjeet/Documents/Playground/docs/topocentric_plan.md) for the design plan.
+See [docs/topocentric_plan.md](../../../docs/topocentric_plan.md) for the design plan.

@@ -231,3 +231,16 @@ If GitHub Actions is unavailable, [cloudbuild.yaml](../cloudbuild.yaml) provides
 
 - Staging: [docs/env.staging.example](env.staging.example)
 - Production: [docs/env.production.example](env.production.example)
+
+## API keys in Secret Manager (Cloud Run)
+
+`VALID_API_KEYS` is mounted from Secret Manager, never stored in the repo, manifest or CI logs.
+
+```bash
+# one-time: create the secret (value read from stdin, not argv) and grant the runtime SA access
+printf '%s' "$NEW_KEYS" | gcloud secrets create astro-valid-api-keys --data-file=- --replication-policy=automatic
+gcloud secrets add-iam-policy-binding astro-valid-api-keys \
+  --member "serviceAccount:$CLOUD_RUN_SERVICE_ACCOUNT" --role roles/secretmanager.secretAccessor
+```
+
+Rotation: add a new version holding `old,new`, redeploy (or `gcloud run services update --update-secrets`), switch clients to the new key, then add a final version holding only `new`. Secret versions resolve at instance start, so roll a new revision after each version change.

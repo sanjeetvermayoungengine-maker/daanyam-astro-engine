@@ -33,9 +33,13 @@ spec:
               value: production
             - name: RUST_LOG
               value: info
-            # Injected at deploy time from GitHub Actions secret ASTRO_VALID_API_KEYS
+            # Comma-separated key list lives in Secret Manager (never in this file or CI logs).
+            # The runtime service account needs roles/secretmanager.secretAccessor on it.
             - name: VALID_API_KEYS
-              value: "__VALID_API_KEYS__"
+              valueFrom:
+                secretKeyRef:
+                  name: __VALID_API_KEYS_SECRET__
+                  key: latest
           resources:
             limits:
               cpu: "1"

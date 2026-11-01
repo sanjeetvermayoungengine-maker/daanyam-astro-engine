@@ -296,9 +296,9 @@ Current behavior:
 
 Cross-route schema governance is defined in:
 
-- [docs/adr/README.md](/Users/sanjeet/Documents/Playground/docs/adr/README.md)
-- [docs/adr/0002-api-schema-versioning.md](/Users/sanjeet/Documents/Playground/docs/adr/0002-api-schema-versioning.md)
-- [docs/adr/0003-topocentric-observer-policy.md](/Users/sanjeet/Documents/Playground/docs/adr/0003-topocentric-observer-policy.md)
+- [docs/adr/README.md](adr/README.md)
+- [docs/adr/0002-api-schema-versioning.md](adr/0002-api-schema-versioning.md)
+- [docs/adr/0003-topocentric-observer-policy.md](adr/0003-topocentric-observer-policy.md)
 
 This chart route intentionally differs from `/positions` and `/positions/sidereal`:
 
@@ -323,4 +323,4 @@ The following names are reserved for future additive chart growth and are intent
 - `cusps_sidereal`
 - `mc_degree_sidereal`
 
-Observer-related future work is planned in [docs/topocentric_plan.md](/Users/sanjeet/Documents/Playground/docs/topocentric_plan.md).
+Observer-related future work is planned in [docs/topocentric_plan.md](topocentric_plan.md).

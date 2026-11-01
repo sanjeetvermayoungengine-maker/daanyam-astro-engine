@@ -107,7 +107,7 @@ Optional runtime variables:
 
 ## Deployment guidance
 
-- Container/runtime guidance lives in [docs/deploy.md](/Users/sanjeet/Documents/Playground/docs/deploy.md).
+- Container/runtime guidance lives in [docs/deploy.md](docs/deploy.md).
 - Tag pushes matching `v*` publish `ghcr.io/<owner>/astro-api:<tag>` and attach:
   - `dist/openapi.json`
   - `dist/openapi.json.sha256`

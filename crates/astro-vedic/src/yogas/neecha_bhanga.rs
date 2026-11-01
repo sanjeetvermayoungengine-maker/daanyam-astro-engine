@@ -1,13 +1,10 @@
 //! Neecha Bhanga Raja Yoga — debilitation cancelled when the debilitated planet's
 //! dispositor sits in a kendra from lagna.
 
-use super::dignity::{
-    graha_rashi, house_lord_for, is_debilitated, is_kendra_house, planet_house,
-};
+use super::dignity::{graha_rashi, house_lord_for, is_debilitated, is_kendra_house, planet_house};
 use super::{DetectedYoga, Yoga, YogaChartFacts};
 
-const GRAHAS: [&str; 7] =
-    ["sun", "moon", "mars", "mercury", "jupiter", "venus", "saturn"];
+const GRAHAS: [&str; 7] = ["sun", "moon", "mars", "mercury", "jupiter", "venus", "saturn"];
 
 pub struct NeechaBhanga;
 

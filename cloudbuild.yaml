@@ -31,6 +31,10 @@ steps:
     name: gcr.io/cloud-builders/docker
     args:
       - build
+      - --build-arg
+      - GIT_COMMIT=${COMMIT_SHA}
+      - --build-arg
+      - BUILD_DATE=${_BUILD_DATE}
       - -t
       - ${_AR_HOST}/${PROJECT_ID}/${_GAR_REPOSITORY}/${_IMAGE_NAME}:${SHORT_SHA}
       - -t
@@ -66,6 +70,7 @@ steps:
           -e "s|__IMAGE_URI__|${_AR_HOST}/${PROJECT_ID}/${_GAR_REPOSITORY}/${_IMAGE_NAME}:${SHORT_SHA}|g" \
           -e "s|__CLOUD_RUN_SERVICE_ACCOUNT__|${SERVICE_ACCOUNT}|g" \
           -e "s|__CLOUD_RUN_EPHEMERIS_BUCKET__|${_CLOUD_RUN_EPHEMERIS_BUCKET}|g" \
+          -e "s|__VALID_API_KEYS_SECRET__|${_VALID_API_KEYS_SECRET}|g" \
           deploy/cloudrun/service.yaml > /workspace/cloudrun-service.yaml
 
   - id: deploy-cloud-run
@@ -106,6 +111,8 @@ images:
   - ${_AR_HOST}/${PROJECT_ID}/${_GAR_REPOSITORY}/${_IMAGE_NAME}:latest
 
 substitutions:
+  # Override at submit time: --substitutions=_BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  _BUILD_DATE: ""
   _AR_HOST: asia-south1-docker.pkg.dev
   _GCP_REGION: asia-south1
   _GAR_REPOSITORY: astro-engine
@@ -113,3 +120,4 @@ substitutions:
   _CLOUD_RUN_SERVICE: astro-api
   _CLOUD_RUN_SERVICE_ACCOUNT: ""
   _CLOUD_RUN_EPHEMERIS_BUCKET: daanyam-ephe
+  _VALID_API_KEYS_SECRET: astro-valid-api-keys

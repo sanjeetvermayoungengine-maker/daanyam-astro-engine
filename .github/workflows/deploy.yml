@@ -69,7 +69,11 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Verify API-key secret exists in Secret Manager
-        run: gcloud secrets describe "${VALID_API_KEYS_SECRET}" --project "${GCP_PROJECT_ID}" --format='value(name)' >/dev/null
+        run: |
+          if ! gcloud secrets describe "${VALID_API_KEYS_SECRET}" --project "${GCP_PROJECT_ID}" --format='value(name)' >/dev/null; then
+            echo "::error title=API-key secret not readable::Secret '${VALID_API_KEYS_SECRET}' is missing or the deploy service account lacks secretmanager.secrets.get. See docs/deploy.md#api-keys-in-secret-manager-cloud-run (grant roles/secretmanager.viewer on the secret to the deploy SA)."
+            exit 1
+          fi
 
       - name: Render Cloud Run service manifest
         run: |

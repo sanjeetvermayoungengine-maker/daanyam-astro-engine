@@ -241,6 +241,10 @@ If GitHub Actions is unavailable, [cloudbuild.yaml](../cloudbuild.yaml) provides
 printf '%s' "$NEW_KEYS" | gcloud secrets create astro-valid-api-keys --data-file=- --replication-policy=automatic
 gcloud secrets add-iam-policy-binding astro-valid-api-keys \
   --member "serviceAccount:$CLOUD_RUN_SERVICE_ACCOUNT" --role roles/secretmanager.secretAccessor
+# one-time: let the GitHub deploy SA verify the secret exists (the Deploy workflow's pre-flight check
+# calls secretmanager.secrets.get; secretAccessor does not include it). Metadata only, no secret values.
+gcloud secrets add-iam-policy-binding astro-valid-api-keys \
+  --member "serviceAccount:$GCP_DEPLOY_SERVICE_ACCOUNT" --role roles/secretmanager.viewer
 ```
 
 Rotation: add a new version holding `old,new`, redeploy (or `gcloud run services update --update-secrets`), switch clients to the new key, then add a final version holding only `new`. Secret versions resolve at instance start, so roll a new revision after each version change.

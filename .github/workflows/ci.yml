@@ -25,6 +25,11 @@ jobs:
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
+      - name: Check formatting
+        run: cargo fmt --check
+      - name: Lint
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      # Kernel-dependent steps below: lint results are reported independently of kernel access.
       - name: Authenticate to Google Cloud
         if: ${{ env.GCP_WIF_PROVIDER != '' && env.GCP_DEPLOY_SA != '' }}
         uses: google-github-actions/auth@v2
@@ -39,38 +44,17 @@ jobs:
         run: |
           mkdir -p ./ephe
           gcloud storage cp gs://${{ vars.CLOUD_RUN_EPHEMERIS_BUCKET || 'daanyam-ephe' }}/de440.bsp "${ASTRO_EPHE_PATH}"
-      - name: Check formatting
-        run: cargo fmt --check
-      - name: Lint
-        run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Test workspace
         run: cargo test --workspace
 
   bench:
     name: bench
     runs-on: ubuntu-latest
-    env:
-      # The `secrets` context is not allowed in step-level `if:`; expose via env instead.
-      GCP_WIF_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-      GCP_DEPLOY_SA: ${{ secrets.GCP_DEPLOY_SERVICE_ACCOUNT }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Authenticate to Google Cloud
-        if: ${{ env.GCP_WIF_PROVIDER != '' && env.GCP_DEPLOY_SA != '' }}
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_DEPLOY_SERVICE_ACCOUNT }}
-      - name: Set up gcloud
-        if: ${{ env.GCP_WIF_PROVIDER != '' && env.GCP_DEPLOY_SA != '' }}
-        uses: google-github-actions/setup-gcloud@v2
-      - name: Fetch DE440 kernel
-        if: ${{ env.GCP_WIF_PROVIDER != '' && env.GCP_DEPLOY_SA != '' }}
-        run: |
-          mkdir -p ./ephe
-          gcloud storage cp gs://${{ vars.CLOUD_RUN_EPHEMERIS_BUCKET || 'daanyam-ephe' }}/de440.bsp "${ASTRO_EPHE_PATH}"
+      # Compile-only check; benches do not need the DE440 kernel, so no GCP auth here.
       - name: Benchmark smoke
         run: cargo bench --workspace --no-run
 

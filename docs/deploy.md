@@ -232,6 +232,15 @@ If GitHub Actions is unavailable, [cloudbuild.yaml](../cloudbuild.yaml) provides
 - Staging: [docs/env.staging.example](env.staging.example)
 - Production: [docs/env.production.example](env.production.example)
 
+## CI access to the DE440 kernel
+
+The `test` and `horizons-regression` CI jobs download `gs://daanyam-ephe/de440.bsp` using the GitHub deploy service account (Workload Identity). That account needs read access to the bucket, otherwise the kernel fetch fails with `storage.objects.get` denied (the DE440 tests must run against the real kernel, so the step is intentionally not optional):
+
+```bash
+gcloud storage buckets add-iam-policy-binding gs://daanyam-ephe \
+  --member "serviceAccount:$GCP_DEPLOY_SERVICE_ACCOUNT" --role roles/storage.objectViewer
+```
+
 ## API keys in Secret Manager (Cloud Run)
 
 `VALID_API_KEYS` is mounted from Secret Manager, never stored in the repo, manifest or CI logs.
